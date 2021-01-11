@@ -7,5 +7,8 @@ LABEL maintainer="Christoph Garth <garth@cs.uni-kl.de>"
 ARG ttk=dev
 ENV TTK_VERSION=${ttk}
 
+ARG dev=""
+ENV DEV=${dev}
+
 COPY ttk.sh /root/
 RUN  /root/helper.sh /root/ttk.sh

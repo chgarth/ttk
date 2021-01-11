@@ -49,6 +49,12 @@ if [ -n "${DEV}" ]; then
         exit
 fi
 
+if [ -n "${DEV}" ]; then
+        echo "DEVELOPER MODE"
+        build_pkgs git
+        exit
+fi
+
 # get source code
 (curl -kL "https://github.com/topology-tool-kit/ttk/archive/${TTK_VERSION}.tar.gz" | tar zx --strip-components 1) ||
 (curl -kL "https://github.com/topology-tool-kit/ttk/archive/v${TTK_VERSION}.tar.gz" | tar zx --strip-components 1)
