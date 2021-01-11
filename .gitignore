@@ -1,5 +1,6 @@
 # Hidden files
 .*
+!.devcontainer
 !.gitignore
 !.github
 
