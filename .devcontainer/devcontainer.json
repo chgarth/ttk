@@ -24,7 +24,42 @@
 			"-DTTK_ENABLE_OPENMP=ON",
 			"-DTTK_ENABLE_KAMIKAZE=ON",
 			"-DTTK_ENABLE_DOUBLE_TEMPLATING=ON"
-		]
+		],
+		"launch": {
+			"configurations": [
+				{
+					"name": "(gdb) pvserver",
+					"type": "cppdbg",
+					"request": "launch",
+					"program": "/usr/bin/pvserver",
+					"args": [],
+					"stopAtEntry": false,
+					"cwd": "${workspaceFolder}",
+					// "environment": [
+					//     { "PV_PLUGIN_PATH": "${workspaceFolder}/lib" }
+					// ],
+					"environment": [
+						{ 
+							"name": "PV_PLUGIN_PATH", 
+							"value": "${command:cmake.buildDirectory}/lib/TopologyToolKit" 
+						},
+						{
+							"name": "LD_LIBRARY_PATH",
+							"value": "${command:cmake.buildDirectory}/lib"
+						}
+					],
+					"externalConsole": false,
+					"MIMode": "gdb",
+					"setupCommands": [
+						{
+							"description": "Enable pretty-printing for gdb",
+							"text": "-enable-pretty-printing",
+							"ignoreFailures": true
+						}
+					]
+				}
+			]
+		}
 	},
 
 	// Add the IDs of extensions you want installed when the container is created.
