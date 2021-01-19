@@ -51,7 +51,6 @@ fi
 
 if [ -n "${DEV}" ]; then
         echo "DEVELOPER MODE"
-        build_pkgs git
         exit
 fi
 
@@ -64,6 +63,7 @@ mkdir build
 pushd build
 
 cmake -G Ninja \
+    -DCMAKE_LINKER=/usr/bin/ld.lld \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_BUILD_TYPE=Release \
     -DTTK_BUILD_DOCUMENTATION=OFF \
