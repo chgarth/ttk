@@ -2,7 +2,7 @@
 // https://github.com/microsoft/vscode-dev-containers/tree/v0.154.2/containers/cpp
 {
 	"name": "TTK Development",
-	"image": "topologytoolkit/ttk-dev:5.9.0-RC4",
+	"image": "topologytoolkit/ttk-dev:5.9.0",
 	"runArgs": [ "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined"],
 
 	// Set *default* container specific settings.json values on container create.
