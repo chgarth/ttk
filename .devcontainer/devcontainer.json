@@ -5,6 +5,12 @@
 	"image": "topologytoolkit/ttk-dev:5.9.0",
 	"runArgs": [ "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined"],
 
+	// filesystem mounts
+	"mounts": [
+		// replace SRC and DST as appropriate
+		//"source=<SRC>,target=<TARGET>,type=bind,consistency=cached"
+	],
+
 	// Set *default* container specific settings.json values on container create.
 	"settings": { 
 		"remote.autoForwardPorts": false		
