@@ -1,0 +1,41 @@
+FROM ubuntu:focal as build-base
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+ && apt-get install -yqq --no-install-recommends \
+    ca-certificates \
+    curl \
+    gpg \
+ && curl -L https://apt.kitware.com/keys/kitware-archive-latest.asc | gpg --dearmor - > /etc/apt/trusted.gpg.d/kitware.gpg \
+ && echo "deb https://apt.kitware.com/ubuntu/ focal main" > /etc/apt/sources.list.d/kitware.list \
+ && apt-get update \
+ && apt-get install -yqq --no-install-recommends \
+    build-essential \
+    python3-minimal \
+    ninja-build \
+    pkg-config \
+    cmake \
+    cmake-curses-gui \
+    git \
+    less \
+    vim \
+ && update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+
+# paraview build -----------------------------------------------------------
+FROM build-base as build-paraview
+
+COPY paraview-superbuild.sh /tmp
+RUN  /tmp/paraview-superbuild.sh
+
+FROM build-base
+LABEL maintainer="Christoph Garth <garth@cs.uni-kl.de>"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+COPY --from=build-paraview /usr/local /usr/local
+
+RUN apt-get update \
+ && apt-get install -yqq --no-install-recommends $(cat /usr/local/share/buildinfo/*.dpkg) \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
+ 
