@@ -44,14 +44,9 @@ runtime_pkgs \
     graphviz            \
     libgomp1
 
-if [ -n "${DEV}" ]; then
-        echo "DEVELOPER MODE"
-        exit
-fi
-
-if [ -n "${DEV}" ]; then
-        echo "DEVELOPER MODE"
-        exit
+# stop here if a development container is desired
+if [ -n "${DEVCONTAINER}" ]; then
+    exit
 fi
 
 # get source code
@@ -78,8 +73,7 @@ cmake -G Ninja \
     ..
 
 # call Ninja manually to ignore duplicate targets
-# cmake --build .
-ninja -w dupbuild=warn install
+ninja -w dupbuild=warn
 cmake --install .
 
 popd

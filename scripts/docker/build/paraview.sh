@@ -8,7 +8,7 @@ build_pkgs \
     ca-certificates		\
     cmake				\
     ninja-build			\
-    python3.8-dev		\
+    python3.9-dev		\
     libexpat1-dev		\
     libeigen3-dev		\
     libfreetype6-dev	\
@@ -32,23 +32,23 @@ build_pkgs \
 
 runtime_pkgs \
     libstdc++6			\
-    libpython3.8		\
+    libpython3.9		\
     libexpat1			\
     libfreetype6		\
     liblz4-1			\
     liblzma5			\
-    libhdf5-103			\
+    libhdf5-103-1		\
     libtiff5			\
     libjpeg8			\
     libpng16-16			\
     libogg0				\
     libtheora0			\
-    libnetcdf15			\
+    libnetcdf18			\
     libnetcdf-c++4		\
     libxml++2.6-2v5		\
-    libjsoncpp1			\
+    libjsoncpp24		\
     libpugixml1v5		\
-    libprotobuf17		\
+    libprotobuf23		\
     libcgns3.4			\
     libtbb2
 
@@ -79,10 +79,13 @@ if [[ "$RELEASE" == "5.6" || "$RELEASE" == "5.7" ]] ; then
     sed -i -E 's/nullptr,(\s+\/\/ tp_)/0,      \1/g' VTK/Wrapping/PythonCore/PyVTK*.cxx
     sed -i -E 's/nullptr,(\s+\/\/ tp_)/0,      \1/g' VTK/Wrapping/Tools/vtkWrapPython*.c
 
+    if [ $(uname -m) == "x86_64" ]; then
+        conf_args -DPARAVIEW_USE_OSPRAY
+    fi
+
     conf_args \
         -DPARAVIEW_BUILD_QT_GUI=OFF 		\
         -DPARAVIEW_ENABLE_PYTHON=ON 		\
-        -DPARAVIEW_USE_OSPRAY=ON 			\
         -DOSPRAY_INSTALL_DIR=/usr 			\
         -DVTK_USE_SYSTEM_LIBRARIES=ON 		\
         -DVTK_USE_SYSTEM_DOUBLECONVERSION=OFF \
@@ -94,9 +97,13 @@ else
     echo "PARAVIEW 5.8+ detected"
     conf_args \
         -DPARAVIEW_USE_QT=OFF 				\
-        -DPARAVIEW_USE_PYTHON=ON 			\
-        -DPARAVIEW_ENABLE_RAYTRACING=ON     \
-        -DVTKOSPRAY_ENABLE_DENOISER=ON
+        -DPARAVIEW_USE_PYTHON=ON
+
+    if [ $(uname -m) == "x86_64" ]; then
+        conf_args \
+            -DPARAVIEW_ENABLE_RAYTRACING=ON \
+            -DVTKOSPRAY_ENABLE_DENOISER=ON
+    fi
 fi
 
 mkdir build
@@ -106,9 +113,11 @@ cmake ${configure_args} ..
 cmake --build .
 cmake --install .
 
-# download and install materials
-mkdir -p /usr/share/materials 
-curl -kL https://gitlab.kitware.com/paraview/materials/-/archive/master/materials-master.tar.bz2 | \
-    tar jxv --strip-components 1 -C /usr/share/materials
+if [ $(uname -m) == "x86_64" ]; then
+    # download and install OSPRay materials
+    mkdir -p /usr/share/materials 
+    curl -kL https://gitlab.kitware.com/paraview/materials/-/archive/master/materials-master.tar.bz2 | \
+        tar jxv --strip-components 1 -C /usr/share/materials
+fi
 
 popd

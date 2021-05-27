@@ -2,6 +2,9 @@
 
 set -e
 
+# do not install if not on an Intel processor
+[ $(uname -m) == "x86_64" ] || exit 0
+
 build_pkgs \
     build-essential         \
     curl                    \
@@ -15,43 +18,17 @@ runtime_pkgs \
 
 # --------------------------------------------------------------------------
 
-case $PARAVIEW_VERSION in
-5.[678]*)
-    echo "using OSPRay 1.8.5"
-
-    curl -L https://github.com/ospray/ospray/archive/v1.8.5.tar.gz | \
-        tar xz --strip-components 1
-    
-    conf_args \
-        -DOSPRAY_ENABLE_TUTORIALS=OFF           \
-        -DOSPRAY_APPS_EXAMPLEVIEWER=OFF         \
-        -DOSPRAY_APPS_UTILITIES=OFF             \
-        -DOSPRAY_APPS_PARAVIEW_TFN_CVT=OFF      \
-        -DOSPRAY_AUTO_DOWNLOAD_TEST_IMAGES=OFF  \
-        -DOSPRAY_APPS_BENCHMARK=ON              \
-        -DOSPRAY_ZIP_MODE=OFF
-    ;;
-
-*)
-    echo "using OSPRay 2.x"
-
-    curl -L https://github.com/ospray/ospray/archive/v2.4.0.tar.gz | \
-        tar xz --strip-components 1
-
-    conf_args \
-        -DOSPRAY_ENABLE_APPS=OFF                \
-        -DOSPRAY_MODULE_DENOISER=ON
-    ;;
-esac
-
+curl -L https://github.com/ospray/ospray/archive/v2.6.0.tar.gz | \
+    tar xz --strip-components 1
 
 mkdir build
 pushd build
 
 cmake -G Ninja \
-    -DCMAKE_INSTALL_PREFIX=/usr             \
-    -DCMAKE_BUILD_TYPE=Release	            \
-    ${configure_args}                       \
+    -DCMAKE_INSTALL_PREFIX=/usr     \
+    -DCMAKE_BUILD_TYPE=Release      \
+    -DOSPRAY_ENABLE_APPS=OFF        \
+    -DOSPRAY_MODULE_DENOISER=ON     \
     ..
 
 cmake --build .

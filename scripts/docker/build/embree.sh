@@ -15,38 +15,32 @@ runtime_pkgs \
 
 # --------------------------------------------------------------------------
 
-# install ISPC
-case $PARAVIEW_VERSION in
-5.[678]*)
-    echo "selected ispc 1.12.0"
-    curl -L https://github.com/ispc/ispc/releases/download/v1.12.0/ispc-v1.12.0b-linux.tar.gz | \
-        tar xz -C /usr/bin --strip-components 2 --wildcards "*/bin/ispc"
-    ;;
-*)
-    echo "selected ispc 1.14.1"
-    curl -L https://github.com/ispc/ispc/releases/download/v1.14.1/ispc-v1.14.1-linux.tar.gz | \
-        tar xz -C /usr/bin --strip-components 2 --wildcards "*/bin/ispc"
-    ;;
-esac
-
-# --------------------------------------------------------------------------
-
 # get source code
-curl -L https://github.com/embree/embree/archive/v3.11.0.tar.gz | \
+curl -L https://github.com/embree/embree/archive/v3.13.0.tar.gz | \
   tar xz --strip-components 1
+
+# use system supplied TBB
+sed -i -e 's/TBB 2021/TBB 2020/' common/tasking/CMakeLists.txt
 
 mkdir build
 pushd build
 
+case $(uname -m) in 
+  x86_64)
+    conf_args \
+      -DEMBREE_MAX_ISA=SSE4.2
+    ;;
+  aarch64)
+    conf_args \
+      -DEMBREE_MAX_ISA=NEON
+    ;;
+esac
+
 cmake -G Ninja \
   -DCMAKE_BUILD_TYPE=Release	\
-  -DEMBREE_TUTORIALS=OFF        \
-  -DEMBREE_ISA_SSE2=ON          \
-  -DEMBREE_ISA_SSE42=ON         \
-  -DEMBREE_ISA_AVX=ON           \
-  -DEMBREE_ISA_AVX2=OFF         \
-  -DEMBREE_ISA_AVX512SKX=OFF    \
-  -DEMBREE_ISA_AVX512KNL=OFF    \
+  -DCMAKE_INSTALL_PREFIX=/usr \
+  -DEMBREE_TUTORIALS=OFF      \
+  ${configure_args} \
   ..
 
 cmake --build .
