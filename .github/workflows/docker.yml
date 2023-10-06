@@ -5,6 +5,8 @@ on:
     # triggered on tag pushes with tags beginning with either "v" or "dev"
     # branch-ignore:
     #   - '*'
+    branches:
+      - 'dev'
     tags:
       - 'v*'
       - 'dev*'
