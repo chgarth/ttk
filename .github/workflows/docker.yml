@@ -34,6 +34,15 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       -
+        name: Build and push the builder image
+        uses: docker/build-push-action@v4
+        with:
+          platforms: ${{ matrix.arch }}
+          context: "{{defaultContext}}:scripts/docker"
+          target: builder
+          cache-from: type=gha,ref=ghcr.io/topology-tool-kit/ttk:builder
+          cache-to:   type=gha,ref=ghcr.io/topology-tool-kit/ttk:builder,mode=max
+      -
         name: Build and push ttk
         uses: docker/build-push-action@v4
         with:
@@ -43,8 +52,7 @@ jobs:
           push: true
           tags: |
             ghcr.io/topology-tool-kit/ttk:latest
-          cache-from: type=gha,ref=ghcr.io/topology-tool-kit/ttk:buildcache
-          cache-to:   type=gha,ref=ghcr.io/topology-tool-kit/ttk:buildcache,mode=max
+          cache-from: type=gha,ref=ghcr.io/topology-tool-kit/ttk:builder
       -
         name: Build and push ttk-dev
         uses: docker/build-push-action@v4
@@ -55,4 +63,4 @@ jobs:
           push: true
           tags: |
             ghcr.io/topology-tool-kit/ttk-dev:latest
-          cache-from: type=gha,ref=ghcr.io/topology-tool-kit/ttk:buildcache
+          cache-from: type=gha,ref=ghcr.io/topology-tool-kit/ttk:builder
