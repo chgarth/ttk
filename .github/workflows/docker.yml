@@ -3,8 +3,8 @@ name: docker_build
 on:
   push:
     # triggered on tag pushes with tags beginning with either "v" or "dev"
-    branch-ignore:
-      - '*'
+    # branch-ignore:
+    #   - '*'
     tags:
       - 'v*'
       - 'dev*'
