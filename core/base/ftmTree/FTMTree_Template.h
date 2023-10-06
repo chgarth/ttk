@@ -35,7 +35,7 @@ void ttk::ftm::FTMTree::build(const triangulationType *mesh) {
   printParams();
 
 #ifdef TTK_ENABLE_OPENMP
-  ParallelGuard pg{threadNumber_};
+  ParallelGuard const pg{threadNumber_};
   omp_set_nested(1);
 #ifdef TTK_ENABLE_OMP_PRIORITY
   if(omp_get_max_task_priority() < 5) {
@@ -184,14 +184,14 @@ void ttk::ftm::FTMTree::build(const triangulationType *mesh) {
   if(debugLevel_ > 4) {
     switch(params_->treeType) {
       case TreeType::Join:
-        jt_->printTree2();
+        jt_.printTree2();
         break;
       case TreeType::Split:
-        st_->printTree2();
+        st_.printTree2();
         break;
       case TreeType::Join_Split:
-        jt_->printTree2();
-        st_->printTree2();
+        jt_.printTree2();
+        st_.printTree2();
         break;
       default:
         printTree2();

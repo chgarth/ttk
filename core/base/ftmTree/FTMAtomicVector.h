@@ -3,7 +3,7 @@
 /// \author Charles Gueunet <charles.gueunet@lip6.fr>
 /// \date 2017-02-09
 ///
-///\brief TTK processing package that manage a paralle vecrion of vector
+///\brief TTK processing package that manage a parallel vecrion of vector
 
 #pragma once
 
@@ -91,7 +91,7 @@ namespace ttk {
       reset();
 
       // Remove old content
-      std::size_t oldSize = std::vector<type>::size();
+      std::size_t const oldSize = std::vector<type>::size();
       std::vector<type>::clear();
       reserve(oldSize);
     }

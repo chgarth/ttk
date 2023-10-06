@@ -70,8 +70,8 @@ namespace ttk {
 
     template <typename scalarType, typename offsetType>
     void updatePropagation(
-      std::vector<polarity> &toPropageMin,
-      std::vector<polarity> &toPropageMax,
+      std::vector<polarity> &toPropagateMin,
+      std::vector<polarity> &toPropagateMax,
       std::vector<std::vector<SimplexId>> &vertexRepresentativesMin,
       std::vector<std::vector<SimplexId>> &vertexRepresentativesMax,
       std::vector<std::vector<SimplexId>> &saddleCCMin,
@@ -115,8 +115,8 @@ namespace ttk {
     void computeCriticalPoints(
       std::vector<std::vector<std::pair<polarity, polarity>>>
         &vertexLinkPolarity,
-      std::vector<polarity> &toPropageMin,
-      std::vector<polarity> &toPropageMax,
+      std::vector<polarity> &toPropagateMin,
+      std::vector<polarity> &toPropagateMax,
       std::vector<polarity> &toProcess,
       std::vector<DynamicTree> &link,
       std::vector<uint8_t> &vertexLink,
@@ -128,10 +128,10 @@ namespace ttk {
       int *monotonyOffsets);
 
     template <typename scalarType, typename offsetType>
-    ttk::SimplexId propageFromSaddles(
+    ttk::SimplexId propagateFromSaddles(
       const SimplexId vertexId,
       std::vector<Lock> &vertLock,
-      std::vector<polarity> &toPropage,
+      std::vector<polarity> &toPropagate,
       std::vector<std::vector<SimplexId>> &vertexRepresentatives,
       std::vector<std::vector<SimplexId>> &saddleCC,
       std::vector<polarity> &isUpdated,
@@ -149,8 +149,8 @@ namespace ttk {
       const int *const monotonyOffsets,
       std::vector<std::vector<SimplexId>> &vertexRepresentativesMin,
       std::vector<std::vector<SimplexId>> &vertexRepresentativesMax,
-      const std::vector<polarity> &toPropageMin,
-      const std::vector<polarity> &toPropageMax) const;
+      const std::vector<polarity> &toPropagateMin,
+      const std::vector<polarity> &toPropagateMax) const;
 
     template <typename scalarType, typename offsetType>
     void sortVertices(const SimplexId vertexNumber,
@@ -186,8 +186,8 @@ namespace ttk {
     void initSaddleSeeds(std::vector<polarity> &isNew,
                          std::vector<std::vector<std::pair<polarity, polarity>>>
                            &vertexLinkPolarity,
-                         std::vector<polarity> &toPropageMin,
-                         std::vector<polarity> &toPropageMax,
+                         std::vector<polarity> &toPropagateMin,
+                         std::vector<polarity> &toPropagateMax,
                          std::vector<polarity> &toProcess,
                          std::vector<DynamicTree> &link,
                          std::vector<uint8_t> &vertexLink,
@@ -198,8 +198,8 @@ namespace ttk {
 
     template <typename scalarType, typename offsetType>
     void updatePropagation(
-      std::vector<polarity> &toPropageMin,
-      std::vector<polarity> &toPropageMax,
+      std::vector<polarity> &toPropagateMin,
+      std::vector<polarity> &toPropagateMax,
       std::vector<std::vector<SimplexId>> &vertexRepresentativesMin,
       std::vector<std::vector<SimplexId>> &vertexRepresentativesMax,
       std::vector<std::vector<SimplexId>> &saddleCCMin,
@@ -261,10 +261,10 @@ namespace ttk {
       const offsetType *const offsets,
       int *monotonyOffsets) const;
 
-    ttk::SimplexId propageFromSaddles(
+    ttk::SimplexId propagateFromSaddles(
       const SimplexId vertexId,
       std::vector<Lock> &vertLock,
-      std::vector<polarity> &toPropage,
+      std::vector<polarity> &toPropagate,
       std::vector<std::vector<SimplexId>> &vertexRepresentatives,
       std::vector<std::vector<SimplexId>> &saddleCC,
       std::vector<polarity> &isUpdated,
@@ -277,8 +277,8 @@ namespace ttk {
       const SimplexId *const offsets,
       std::vector<std::vector<SimplexId>> &vertexRepresentativesMin,
       std::vector<std::vector<SimplexId>> &vertexRepresentativesMax,
-      const std::vector<polarity> &toPropageMin,
-      const std::vector<polarity> &toPropageMax) const;
+      const std::vector<polarity> &toPropagateMin,
+      const std::vector<polarity> &toPropagateMax) const;
 
     template <typename scalarType, typename offsetType>
     bool printPolarity(std::vector<polarity> &isNew,
@@ -334,8 +334,8 @@ int ttk::ApproximateTopology::executeApproximateTopology(
     vertexNumber);
 
   std::vector<polarity> isNew(vertexNumber, 255);
-  std::vector<polarity> toPropageMin(vertexNumber, 0),
-    toPropageMax(vertexNumber, 0);
+  std::vector<polarity> toPropagateMin(vertexNumber, 0),
+    toPropagateMax(vertexNumber, 0);
   std::vector<polarity> isUpToDateMin(vertexNumber, 0),
     isUpToDateMax(vertexNumber, 0);
 
@@ -357,7 +357,7 @@ int ttk::ApproximateTopology::executeApproximateTopology(
   std::vector<Lock> vertLockMin(vertexNumber), vertLockMax(vertexNumber);
 
   if(preallocateMemory_) {
-    double tm_prealloc = timer.getElapsedTime();
+    const double tm_prealloc = timer.getElapsedTime();
     printMsg("Pre-allocating data structures", 0, 0, threadNumber_,
              ttk::debug::LineMode::REPLACE);
     for(SimplexId i = 0; i < vertexNumber; ++i) {
@@ -400,10 +400,9 @@ int ttk::ApproximateTopology::executeApproximateTopology(
   initGlobalPolarity(isNew, vertexLinkPolarity, toProcess, fakeScalars, offsets,
                      monotonyOffsets);
 
-  double delta = epsilon_ * delta_;
+  double const delta = epsilon_ * delta_;
 
   while(decimationLevel_ > stoppingDecimationLevel_) {
-    Timer tmIter{};
     decimationLevel_--;
     multiresTriangulation_.setDecimationLevel(decimationLevel_);
     // double progress = (double)(startingDecimationLevel_ - decimationLevel_)
@@ -412,28 +411,28 @@ int ttk::ApproximateTopology::executeApproximateTopology(
     //                progress, timer.getElapsedTime() - tm_allocation,
     //                threadNumber_);
 
-    int ret = updateGlobalPolarity(delta, isNew, vertexLinkPolarity, toProcess,
-                                   toReprocess, fakeScalars, offsets,
-                                   monotonyOffsets);
+    int const ret = updateGlobalPolarity(delta, isNew, vertexLinkPolarity,
+                                         toProcess, toReprocess, fakeScalars,
+                                         offsets, monotonyOffsets);
     if(ret == -1) {
       std::cout << "Found ERROR - aborting" << std::endl;
       return -1;
     }
   } // end while
 
-  computeCriticalPoints(vertexLinkPolarity, toPropageMin, toPropageMax,
+  computeCriticalPoints(vertexLinkPolarity, toPropagateMin, toPropagateMax,
                         toProcess, link, vertexLink, vertexLinkByBoundaryType,
                         saddleCCMin, saddleCCMax, fakeScalars, offsets,
                         monotonyOffsets);
 
-  updatePropagation(toPropageMin, toPropageMax, vertexRepresentativesMin,
+  updatePropagation(toPropagateMin, toPropagateMax, vertexRepresentativesMin,
                     vertexRepresentativesMax, saddleCCMin, saddleCCMax,
                     vertLockMin, vertLockMax, isUpToDateMin, isUpToDateMax,
                     fakeScalars, offsets, monotonyOffsets);
 
   computePersistencePairsFromSaddles(
     CTDiagram_, fakeScalars, offsets, monotonyOffsets, vertexRepresentativesMin,
-    vertexRepresentativesMax, toPropageMin, toPropageMax);
+    vertexRepresentativesMax, toPropagateMin, toPropagateMax);
   // ADD GLOBAL MIN-MAX PAIR
   CTDiagram_.emplace_back(this->globalMin_, this->globalMax_, -1);
   // fakeScalars[this->globalMax_] - fakeScalars[this->globalMin_], -1);
@@ -465,8 +464,8 @@ void ttk::ApproximateTopology::computePersistencePairsFromSaddles(
   const int *const monotonyOffsets,
   std::vector<std::vector<SimplexId>> &vertexRepresentativesMin,
   std::vector<std::vector<SimplexId>> &vertexRepresentativesMax,
-  const std::vector<polarity> &toPropageMin,
-  const std::vector<polarity> &toPropageMax) const {
+  const std::vector<polarity> &toPropagateMin,
+  const std::vector<polarity> &toPropagateMax) const {
 
   Timer timer{};
   // CTDiagram.clear();
@@ -474,11 +473,12 @@ void ttk::ApproximateTopology::computePersistencePairsFromSaddles(
   const SimplexId nbDecVert = multiresTriangulation_.getDecimatedVertexNumber();
 
   for(SimplexId localId = 0; localId < nbDecVert; localId++) {
-    SimplexId globalId = multiresTriangulation_.localToGlobalVertexId(localId);
-    if(toPropageMin[globalId]) {
+    const SimplexId globalId
+      = multiresTriangulation_.localToGlobalVertexId(localId);
+    if(toPropagateMin[globalId]) {
       getTripletsFromSaddles(globalId, tripletsMin, vertexRepresentativesMin);
     }
-    if(toPropageMax[globalId]) {
+    if(toPropagateMax[globalId]) {
       getTripletsFromSaddles(globalId, tripletsMax, vertexRepresentativesMax);
     }
   }
@@ -561,7 +561,6 @@ void ttk::ApproximateTopology::tripletsToPersistencePairs(
   Timer tm;
   if(triplets.empty())
     return;
-  size_t numberOfPairs = 0;
 
   // // accelerate getRep lookup?
   // std::vector<SimplexId> firstRep(vertexRepresentatives.size());
@@ -596,8 +595,7 @@ void ttk::ApproximateTopology::tripletsToPersistencePairs(
     SimplexId r1 = getRep(std::get<1>(t));
     SimplexId r2 = getRep(std::get<2>(t));
     if(r1 != r2) {
-      SimplexId s = std::get<0>(t);
-      numberOfPairs++;
+      SimplexId const s = std::get<0>(t);
 
       // Add pair
       if(splitTree) {
@@ -627,7 +625,7 @@ void ttk::ApproximateTopology::tripletsToPersistencePairs(
   }
 
   if(debugLevel_ > 3) {
-    std::string prefix = splitTree ? "[sad-max]" : "[min-sad]";
+    const std::string prefix = splitTree ? "[sad-max]" : "[min-sad]";
     std::cout << prefix << "  found all pairs in " << tm.getElapsedTime()
               << " s." << std::endl;
   }
@@ -641,8 +639,6 @@ void ttk::ApproximateTopology::sortVertices(
   const scalarType *const fakeScalars,
   const offsetType *const offsets,
   const int *const monotonyOffsets) {
-
-  Timer tm;
 
   sortedVertices.resize(vertexNumber);
 
@@ -665,10 +661,6 @@ void ttk::ApproximateTopology::sortVertices(
   for(size_t i = 0; i < sortedVertices.size(); ++i) {
     vertsOrder[sortedVertices[i]] = i;
   }
-
-  // if(debugLevel_ > 2) {
-  //   std::cout << "SORT " << tm.getElapsedTime() << std::endl;
-  // }
 }
 
 template <typename scalarType, typename offsetType>
@@ -708,19 +700,19 @@ int ttk::ApproximateTopology::getMonotonyChangeByOldPointCPApproximate(
 
     if(isUpperDynamic != isUpperOld) { // change of monotony
       SimplexId oldNeighbor = -1;
-      int oldDecimation = pow(2, decimationLevel_ + 1);
+      const int oldDecimation = pow(2, decimationLevel_ + 1);
       multiresTriangulation_.getVertexNeighborAtDecimation(
         vertexId, i, oldNeighbor, oldDecimation);
 
-      double replacementValueDynamic
+      double const replacementValueDynamic
         = (0.5 * (double)fakeScalars[oldNeighbor]
            + .5 * (double)fakeScalars[vertexId]); // depends on epsilon
-      double deltaDynamic
+      double const deltaDynamic
         = fabs((double)fakeScalars[neighborId] - replacementValueDynamic);
 
       //=====================
       SimplexId oldNeighNumber = 0;
-      SimplexId nnumber
+      const SimplexId nnumber
         = multiresTriangulation_.getVertexNeighborNumber(neighborId);
       for(SimplexId iii = 0; iii < nnumber; iii++) {
         SimplexId neighborId2 = -1;
@@ -793,10 +785,10 @@ int ttk::ApproximateTopology::getMonotonyChangeByOldPointCPApproximate(
 }
 
 template <typename scalarType, typename offsetType>
-ttk::SimplexId ttk::ApproximateTopology::propageFromSaddles(
+ttk::SimplexId ttk::ApproximateTopology::propagateFromSaddles(
   const SimplexId vertexId,
   std::vector<Lock> &vertLock,
-  std::vector<polarity> &toPropage,
+  std::vector<polarity> &toPropagate,
   std::vector<std::vector<SimplexId>> &vertexRepresentatives,
   std::vector<std::vector<SimplexId>> &saddleCC,
   std::vector<polarity> &isUpdated,
@@ -806,7 +798,7 @@ ttk::SimplexId ttk::ApproximateTopology::propageFromSaddles(
   const offsetType *const offsets,
   const int *const monotonyOffsets) const {
 
-  auto &toProp = toPropage[vertexId];
+  auto &toProp = toPropagate[vertexId];
   auto &reps = vertexRepresentatives[vertexId];
   auto &updated = isUpdated[vertexId];
 
@@ -833,7 +825,7 @@ ttk::SimplexId ttk::ApproximateTopology::propageFromSaddles(
     vertLock[vertexId].lock();
   }
   if(saddleCC[vertexId].size()
-     and !toProp) { // tis a saddle point, should have to propage on it
+     and !toProp) { // tis a saddle point, should have to propagate on it
     printErr("ERRRROR");
   }
   if(toProp) { // SADDLE POINT
@@ -851,16 +843,16 @@ ttk::SimplexId ttk::ApproximateTopology::propageFromSaddles(
     reps.reserve(CC.size());
     for(size_t r = 0; r < CC.size(); r++) {
       SimplexId neighborId = -1;
-      SimplexId localId = CC[r];
+      const SimplexId localId = CC[r];
       multiresTriangulation_.getVertexNeighbor(vertexId, localId, neighborId);
       // printMsg("       CC " + std::to_string(CC[r]) + " "
       //          + std::to_string(neighborId) + " ("
       //          + std::to_string(fakeScalars[neighborId]) + " , "
       //          + std::to_string(offsets[neighborId]) + ")");
-      SimplexId ret = propageFromSaddles(neighborId, vertLock, toPropage,
-                                         vertexRepresentatives, saddleCC,
-                                         isUpdated, globalExtremum, splitTree,
-                                         fakeScalars, offsets, monotonyOffsets);
+      SimplexId const ret = propagateFromSaddles(
+        neighborId, vertLock, toPropagate, vertexRepresentatives, saddleCC,
+        isUpdated, globalExtremum, splitTree, fakeScalars, offsets,
+        monotonyOffsets);
       reps.emplace_back(ret);
     }
 
@@ -884,7 +876,7 @@ ttk::SimplexId ttk::ApproximateTopology::propageFromSaddles(
                + std::to_string(saddleCC[vertexId].size()));
 
     SimplexId ret = vertexId;
-    SimplexId neighborNumber
+    const SimplexId neighborNumber
       = multiresTriangulation_.getVertexNeighborNumber(vertexId);
     SimplexId maxNeighbor = vertexId;
     // std::cout << "neigh number" << neighborNumber << std::endl;
@@ -896,10 +888,10 @@ ttk::SimplexId ttk::ApproximateTopology::propageFromSaddles(
       }
     }
     if(maxNeighbor != vertexId) { // not an extremum
-      ret = propageFromSaddles(maxNeighbor, vertLock, toPropage,
-                               vertexRepresentatives, saddleCC, isUpdated,
-                               globalExtremum, splitTree, fakeScalars, offsets,
-                               monotonyOffsets);
+      ret = propagateFromSaddles(maxNeighbor, vertLock, toPropagate,
+                                 vertexRepresentatives, saddleCC, isUpdated,
+                                 globalExtremum, splitTree, fakeScalars,
+                                 offsets, monotonyOffsets);
 
     } else { // needed to find the globalExtremum per thread
 #ifdef TTK_ENABLE_OPENMP
@@ -927,8 +919,8 @@ ttk::SimplexId ttk::ApproximateTopology::propageFromSaddles(
 
 template <typename scalarType, typename offsetType>
 void ttk::ApproximateTopology::updatePropagation(
-  std::vector<polarity> &toPropageMin,
-  std::vector<polarity> &toPropageMax,
+  std::vector<polarity> &toPropagateMin,
+  std::vector<polarity> &toPropagateMax,
   std::vector<std::vector<SimplexId>> &vertexRepresentativesMin,
   std::vector<std::vector<SimplexId>> &vertexRepresentativesMax,
   std::vector<std::vector<SimplexId>> &saddleCCMin,
@@ -946,14 +938,14 @@ void ttk::ApproximateTopology::updatePropagation(
 
   if(debugLevel_ > 5) {
     const auto pred = [](const polarity a) { return a > 0; };
-    const auto numberOfCandidatesToPropageMax
-      = std::count_if(toPropageMax.begin(), toPropageMax.end(), pred);
-    std::cout << " sad-max we have " << numberOfCandidatesToPropageMax
-              << " vertices to propage from outta " << nDecVerts << std::endl;
-    const auto numberOfCandidatesToPropageMin
-      = std::count_if(toPropageMin.begin(), toPropageMin.end(), pred);
-    std::cout << " min-sad we have " << numberOfCandidatesToPropageMin
-              << " vertices to propage from outta " << nDecVerts << std::endl;
+    const auto numberOfCandidatesToPropagateMax
+      = std::count_if(toPropagateMax.begin(), toPropagateMax.end(), pred);
+    std::cout << " sad-max we have " << numberOfCandidatesToPropagateMax
+              << " vertices to propagate from outta " << nDecVerts << std::endl;
+    const auto numberOfCandidatesToPropagateMin
+      = std::count_if(toPropagateMin.begin(), toPropagateMin.end(), pred);
+    std::cout << " min-sad we have " << numberOfCandidatesToPropagateMin
+              << " vertices to propagate from outta " << nDecVerts << std::endl;
   }
 
   std::vector<SimplexId> globalMaxThr(threadNumber_, 0);
@@ -964,26 +956,28 @@ void ttk::ApproximateTopology::updatePropagation(
 #pragma omp parallel for num_threads(threadNumber_)
 #endif // TTK_ENABLE_OPENMP
   for(size_t i = 0; i < nDecVerts; i++) {
-    SimplexId v = multiresTriangulation_.localToGlobalVertexId(i);
+    const SimplexId v = multiresTriangulation_.localToGlobalVertexId(i);
     isUpdatedMin[v] = 0;
     isUpdatedMax[v] = 0;
   }
 
-  // propage along split tree
+  // propagate along split tree
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(threadNumber_)
 #endif // TTK_ENABLE_OPENMP
   for(size_t i = 0; i < nDecVerts; i++) {
-    SimplexId v = multiresTriangulation_.localToGlobalVertexId(i);
-    if(toPropageMin[v]) {
-      propageFromSaddles(v, vertLockMin, toPropageMin, vertexRepresentativesMin,
-                         saddleCCMin, isUpdatedMin, globalMinThr, false,
-                         fakeScalars, offsets, monotonyOffsets);
+    SimplexId const v = multiresTriangulation_.localToGlobalVertexId(i);
+    if(toPropagateMin[v]) {
+      propagateFromSaddles(v, vertLockMin, toPropagateMin,
+                           vertexRepresentativesMin, saddleCCMin, isUpdatedMin,
+                           globalMinThr, false, fakeScalars, offsets,
+                           monotonyOffsets);
     }
-    if(toPropageMax[v]) {
-      propageFromSaddles(v, vertLockMax, toPropageMax, vertexRepresentativesMax,
-                         saddleCCMax, isUpdatedMax, globalMaxThr, true,
-                         fakeScalars, offsets, monotonyOffsets);
+    if(toPropagateMax[v]) {
+      propagateFromSaddles(v, vertLockMax, toPropagateMax,
+                           vertexRepresentativesMax, saddleCCMax, isUpdatedMax,
+                           globalMaxThr, true, fakeScalars, offsets,
+                           monotonyOffsets);
     }
   }
 
@@ -1003,7 +997,7 @@ void ttk::ApproximateTopology::updatePropagation(
 #pragma omp parallel for num_threads(threadNumber_)
 #endif // TTK_ENABLE_OPENMP
     for(size_t i = 0; i < nDecVerts; i++) {
-      SimplexId v = multiresTriangulation_.localToGlobalVertexId(i);
+      SimplexId const v = multiresTriangulation_.localToGlobalVertexId(i);
 
 #ifdef TTK_ENABLE_OPENMP
       const auto tid = omp_get_thread_num();
@@ -1022,7 +1016,7 @@ void ttk::ApproximateTopology::updatePropagation(
       = *std::min_element(globalMinThr.begin(), globalMinThr.end(), lt);
     globalMax_
       = *std::max_element(globalMaxThr.begin(), globalMaxThr.end(), lt);
-    // printMsg("Explicitely found global extremas");
+    // printMsg("Explicitly found global extremas");
   }
   if(debugLevel_ > 3) {
     printMsg("Propagation Update", 1, tm.getElapsedTime(), threadNumber_);
@@ -1190,7 +1184,7 @@ void ttk::ApproximateTopology::initGlobalPolarity(
 #pragma omp parallel for num_threads(threadNumber_)
 #endif // TTK_ENABLE_OPENMP
   for(size_t i = 0; i < nDecVerts; i++) {
-    SimplexId globalId = multiresTriangulation_.localToGlobalVertexId(i);
+    SimplexId const globalId = multiresTriangulation_.localToGlobalVertexId(i);
     buildVertexLinkPolarityApproximate(globalId, vertexLinkPolarity[globalId],
                                        fakeScalars, offsets, monotonyOffsets);
     toProcess[globalId] = 255;
@@ -1211,14 +1205,14 @@ int ttk::ApproximateTopology::updateGlobalPolarity(
   const offsetType *const offsets,
   int *monotonyOffsets) const {
 
-  Timer tm;
   const auto nDecVerts = multiresTriangulation_.getDecimatedVertexNumber();
 
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(threadNumber_)
 #endif // TTK_ENABLE_OPENMP
   for(SimplexId localId = 0; localId < nDecVerts; localId++) {
-    SimplexId globalId = multiresTriangulation_.localToGlobalVertexId(localId);
+    SimplexId const globalId
+      = multiresTriangulation_.localToGlobalVertexId(localId);
     if(!isNew[globalId]) {
       getMonotonyChangeByOldPointCPApproximate(
         globalId, eps, isNew, toProcess, toReprocess,
@@ -1231,7 +1225,7 @@ int ttk::ApproximateTopology::updateGlobalPolarity(
 #pragma omp parallel for num_threads(threadNumber_)
 #endif
   for(int i = 0; i < multiresTriangulation_.getDecimatedVertexNumber(); i++) {
-    SimplexId globalId = multiresTriangulation_.localToGlobalVertexId(i);
+    SimplexId const globalId = multiresTriangulation_.localToGlobalVertexId(i);
     if(isNew[globalId]) { // new point
       if(decimationLevel_ > stoppingDecimationLevel_) {
         buildVertexLinkPolarityApproximate(
@@ -1255,8 +1249,8 @@ int ttk::ApproximateTopology::updateGlobalPolarity(
 template <typename ScalarType, typename offsetType>
 void ttk::ApproximateTopology::computeCriticalPoints(
   std::vector<std::vector<std::pair<polarity, polarity>>> &vertexLinkPolarity,
-  std::vector<polarity> &toPropageMin,
-  std::vector<polarity> &toPropageMax,
+  std::vector<polarity> &toPropagateMin,
+  std::vector<polarity> &toPropagateMax,
   std::vector<polarity> &toProcess,
   std::vector<DynamicTree> &link,
   std::vector<uint8_t> &vertexLink,
@@ -1273,7 +1267,7 @@ void ttk::ApproximateTopology::computeCriticalPoints(
 #pragma omp parallel for num_threads(threadNumber_)
 #endif
   for(int i = 0; i < multiresTriangulation_.getDecimatedVertexNumber(); i++) {
-    SimplexId globalId = multiresTriangulation_.localToGlobalVertexId(i);
+    SimplexId const globalId = multiresTriangulation_.localToGlobalVertexId(i);
 
     if(toProcess[globalId]) {
       // nbComputations++;
@@ -1282,7 +1276,7 @@ void ttk::ApproximateTopology::computeCriticalPoints(
                                  vertexLinkByBoundaryType, fakeScalars, offsets,
                                  monotonyOffsets);
       getValencesFromLink(globalId, vertexLinkPolarity[globalId],
-                          link[globalId], toPropageMin, toPropageMax,
+                          link[globalId], toPropagateMin, toPropagateMax,
                           saddleCCMin, saddleCCMax);
     }
   } // end for openmp

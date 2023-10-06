@@ -15,7 +15,7 @@
 
 // base code includes
 #include <FTMTreePP.h>
-#include <TopologicalSimplification.h>
+#include <LegacyTopologicalSimplification.h>
 #include <Triangulation.h>
 
 // std
@@ -37,7 +37,7 @@ namespace ttk {
      * @pre For this function to behave correctly in the absence of
      * the VTK wrapper, ttk::preconditionOrderArray() needs to be
      * called to fill the @p inputOffsets buffer prior to any
-     * computation (the VTK wrapper already includes a mecanism to
+     * computation (the VTK wrapper already includes a mechanism to
      * automatically generate such a preconditioned buffer).
      * @see examples/c++/main.cpp for an example use.
      */
@@ -359,7 +359,7 @@ namespace ttk {
 
   protected:
     // General.
-    TopologicalSimplification topologicalSimplification{};
+    LegacyTopologicalSimplification topologicalSimplification{};
     ftm::FTMTreePP ftmTreePP;
 
     // Parameters
@@ -426,9 +426,9 @@ int ttk::TopologicalCompression::execute(
 // if (tol < 0 || tol > 100) return -4;
 #endif
 
-  int vertexNumber = triangulation.getNumberOfVertices();
+  int const vertexNumber = triangulation.getNumberOfVertices();
 
-  int res = 0;
+  int const res = 0;
   if(compressionType_ == (int)ttk::CompressionType::PersistenceDiagram)
     compressForPersistenceDiagram(vertexNumber, inputData, inputOffsets,
                                   outputData, Tolerance, triangulation);
@@ -451,7 +451,7 @@ int ttk::TopologicalCompression::ReadFromFile(
     return -4;
   }
 
-  bool useZlib = Read<uint8_t>(fp);
+  bool const useZlib = Read<uint8_t>(fp);
   unsigned char *dest;
   std::vector<unsigned char> ddest;
   unsigned long destLen;

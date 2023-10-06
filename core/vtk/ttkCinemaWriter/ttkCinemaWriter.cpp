@@ -58,7 +58,7 @@ int ttkCinemaWriter::FillOutputPortInformation(int port, vtkInformation *info) {
   return 1;
 }
 
-int ensureFolder(const std::string &path) {
+static int ensureFolder(const std::string &path) {
   auto directory = vtkSmartPointer<vtkDirectory>::New();
   if(directory->Open(path.data()) == 1
      || vtkDirectory::MakeDirectory(path.data()) == 1)
@@ -87,7 +87,7 @@ int ttkCinemaWriter::DeleteDatabase() {
   this->Modified();
   if(this->ValidateDatabasePath() == 0)
     return 0;
-  int status = vtkDirectory::DeleteDirectory(this->DatabasePath.data());
+  int const status = vtkDirectory::DeleteDirectory(this->DatabasePath.data());
 
   this->printMsg("Deleting CDB: " + this->DatabasePath, 1, t.getElapsedTime());
 
@@ -139,10 +139,10 @@ int ttkCinemaWriter::ProcessDataProduct(vtkDataObject *input) {
   if(compressor != nullptr)
     compressor->SetCompressionLevel(this->CompressionLevel);
 
-  std::string productExtension = this->Format == FORMAT::VTK
-                                   ? xmlWriter->GetDefaultFileExtension()
-                                 : this->Format == FORMAT::PNG ? "png"
-                                                               : "ttk";
+  std::string const productExtension = this->Format == FORMAT::VTK
+                                         ? xmlWriter->GetDefaultFileExtension()
+                                       : this->Format == FORMAT::PNG ? "png"
+                                                                     : "ttk";
 
   // -------------------------------------------------------------------------
   // Prepare Field Data
@@ -162,7 +162,7 @@ int ttkCinemaWriter::ProcessDataProduct(vtkDataObject *input) {
 
     // remove temporary columns
     for(size_t i = 0; i < nFields; i++) {
-      std::string name(inputFD->GetArrayName(i));
+      std::string const name(inputFD->GetArrayName(i));
       if(name.substr(0, 4).compare("_ttk") == 0)
         toIgnore.emplace_back(name);
     }
@@ -231,7 +231,7 @@ int ttkCinemaWriter::ProcessDataProduct(vtkDataObject *input) {
   // Update database
   // ===========================================================================
   {
-    // Initilize file lock for remaining operations
+    // Initialize file lock for remaining operations
     std::string lockFilePath;
     if(!this->GetLockFilePath(lockFilePath))
       return 0;
@@ -243,11 +243,11 @@ int ttkCinemaWriter::ProcessDataProduct(vtkDataObject *input) {
     } catch(boost::interprocess::interprocess_exception &) {
     }
 
-    std::string csvPath = this->DatabasePath + "/data.csv";
+    std::string const csvPath = this->DatabasePath + "/data.csv";
     struct stat info;
 
     // -------------------------------------------------------------------------
-    // If data.csv file does not exsist create it
+    // If data.csv file does not exist create it
     // -------------------------------------------------------------------------
     if(stat(csvPath.data(), &info) != 0) {
       ttk::Timer t;
@@ -310,8 +310,8 @@ int ttkCinemaWriter::ProcessDataProduct(vtkDataObject *input) {
 
     // check CSV file integrity
     std::vector<vtkStringArray *> fieldToCSVColumnMap(nFields);
-    size_t nRows = csvTable->GetNumberOfRows();
-    size_t nColumns = csvTable->GetNumberOfColumns();
+    size_t const nRows = csvTable->GetNumberOfRows();
+    size_t const nColumns = csvTable->GetNumberOfColumns();
     {
       // Check If CSV file is empty
       if(nColumns == 0) {
@@ -322,18 +322,18 @@ int ttkCinemaWriter::ProcessDataProduct(vtkDataObject *input) {
 
       // Check If CSV file contains columns not present in fields
       for(size_t i = 0; i < nColumns; i++) {
-        std::string columnName = csvTable->GetColumnName(i);
+        std::string const columnName = csvTable->GetColumnName(i);
 
         // skip FILE column
         if(columnName.compare("FILE") == 0)
           continue;
 
-        bool exsist = false;
+        bool exist = false;
         for(size_t j = 0; j < nFields; j++) {
           if(fields[j].compare(columnName) == 0)
-            exsist = true;
+            exist = true;
         }
-        if(!exsist) {
+        if(!exist) {
           this->printErr("'data.csv' file contains column '" + columnName
                          + "' not present in field data.");
           this->printErr("Unable to insert data product into cinema database.");
@@ -406,7 +406,7 @@ int ttkCinemaWriter::ProcessDataProduct(vtkDataObject *input) {
       this->printMsg("Updating data.csv file", 0, ttk::debug::LineMode::REPLACE,
                      ttk::debug::Priority::DETAIL);
 
-      size_t rowIndex = csvTable->GetNumberOfRows();
+      size_t const rowIndex = csvTable->GetNumberOfRows();
       csvTable->InsertNextBlankRow();
 
       for(size_t j = 0; j < nFields; j++)
@@ -557,7 +557,7 @@ int ttkCinemaWriter::RequestData(vtkInformation *ttkNotUsed(request),
   // Prepare Database
   // -------------------------------------------------------------------------
   {
-    // Initilize file lock for remaining operations
+    // Initialize file lock for remaining operations
     std::string lockFilePath;
     if(!this->GetLockFilePath(lockFilePath))
       return 0;
@@ -585,7 +585,7 @@ int ttkCinemaWriter::RequestData(vtkInformation *ttkNotUsed(request),
 
   auto inputAsMB = vtkMultiBlockDataSet::SafeDownCast(input);
   if(this->IterateMultiBlock && inputAsMB) {
-    size_t n = inputAsMB->GetNumberOfBlocks();
+    size_t const n = inputAsMB->GetNumberOfBlocks();
     for(size_t i = 0; i < n; i++)
       if(!this->ProcessDataProduct(inputAsMB->GetBlock(i)))
         return 0;

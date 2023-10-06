@@ -1,13 +1,13 @@
 # --- Prerequisites
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 
 # --- Global Options
 
 option(TTK_BUILD_VTK_WRAPPERS "Build the TTK VTK Wrappers" ON)
 cmake_dependent_option(TTK_BUILD_PARAVIEW_PLUGINS "Build the TTK ParaView Plugins" ON "TTK_BUILD_VTK_WRAPPERS" OFF)
 option(TTK_BUILD_STANDALONE_APPS "Build the TTK Standalone Applications" ON)
-option(TTK_WHITELIST_MODE "Explicitely enable each filter" OFF)
+option(TTK_WHITELIST_MODE "Explicitly enable each filter" OFF)
 mark_as_advanced(TTK_WHITELIST_MODE BUILD_SHARED_LIBS)
 
 # This option allows library to be built dynamic
@@ -32,7 +32,7 @@ endif ()
 # This variable has two possible values "SingleArray" and "OffsetAndConnectiviy".
 # * "SingleArray" use a layout compatible with VTK < 9 were the cell array store the
 #   cells and their connectivity in a flat array
-# * "OffsetAndConnectivity" use a layout comatible with VTK >= 9, having two arrays
+# * "OffsetAndConnectivity" use a layout compatible with VTK >= 9, having two arrays
 #   (see https://vtk.org/doc/nightly/html/classvtkCellArray.html#details for more info)
 set(TTK_CELL_ARRAY_LAYOUT "SingleArray" CACHE STRING "Layout for the cell array.")
 set_property(CACHE TTK_CELL_ARRAY_LAYOUT PROPERTY STRINGS "SingleArray" "OffsetAndConnectivity")
@@ -43,13 +43,15 @@ mark_as_advanced(TTK_CELL_ARRAY_LAYOUT)
 option(TTK_ENABLE_MPI "Enable MPI support" FALSE)
 if (TTK_ENABLE_MPI)
   find_package(MPI REQUIRED)
+  option(TTK_ENABLE_MPI_TIME "Enable time measuring for MPI computation" FALSE)
+  mark_as_advanced(TTK_ENABLE_MPI_TIME)
 endif()
 
 if(TTK_BUILD_PARAVIEW_PLUGINS OR TTK_BUILD_VTK_WRAPPERS)
   # Find ParaView, otherwise VTK
   find_package(ParaView)
   if(ParaView_FOUND)
-    # hande version manually so we do not have to include
+    # handle version manually so we do not have to include
     # files from VTK / ParaView in the code.
     # this is necessary to work with build folder directly (MacOS)
     add_definitions(-DPARAVIEW_VERSION_MAJOR=${ParaView_VERSION_MAJOR})
@@ -64,7 +66,7 @@ if(TTK_BUILD_PARAVIEW_PLUGINS OR TTK_BUILD_VTK_WRAPPERS)
   else()
     find_package(VTK)
     if(VTK_FOUND)
-      # hande version manually so we do not have to include
+      # handle version manually so we do not have to include
       # files from VTK / ParaView in the code.
       # this is necessary to work with build folder directly (MacOS)
       add_definitions(-DVTK_VERSION_MAJOR=${VTK_VERSION_MAJOR})
@@ -98,7 +100,7 @@ endif()
 option(TTK_ENABLE_64BIT_IDS "Enable processing on large datasets" OFF)
 mark_as_advanced(TTK_ENABLE_64BIT_IDS)
 
-option(TTK_ENABLE_KAMIKAZE "Enable Kamikaze compilation mode" OFF)
+option(TTK_ENABLE_KAMIKAZE "Enable Kamikaze compilation mode" ON)
 mark_as_advanced(TTK_ENABLE_KAMIKAZE)
 
 option(TTK_ENABLE_CPU_OPTIMIZATION "Enable native CPU optimizations" ON)
@@ -127,9 +129,6 @@ mark_as_advanced(TTK_SCRIPTS_PATH)
 
 option(TTK_ENABLE_SHARED_BASE_LIBRARIES "Generate shared base libraries instead of static ones" ON)
 mark_as_advanced(TTK_ENABLE_SHARED_BASE_LIBRARIES)
-if(TTK_ENABLE_SHARED_BASE_LIBRARIES AND MSVC)
-  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-endif()
 
 option(TTK_BUILD_DOCUMENTATION "Build doxygen developer documentation" OFF)
 if(TTK_BUILD_DOCUMENTATION)
@@ -149,7 +148,7 @@ if(Boost_FOUND)
   message(STATUS "Found Boost ${Boost_VERSION} (${Boost_INCLUDE_DIR})")
 endif()
 
-# optional pakages
+# optional packages
 
 find_package(ZLIB QUIET)
 if(ZLIB_FOUND)
@@ -241,9 +240,16 @@ else()
 endif()
 
 if(MSVC)
-  option(TTK_ENABLE_OPENMP "Enable OpenMP support" FALSE)
+  option(TTK_ENABLE_OPENMP "Enable OpenMP support" TRUE)
+  option(TTK_ENABLE_OPENMP4 "Enable OpenMP4 support" FALSE)
+  set(OpenMP_CXX_FLAGS /openmp:llvm
+      CACHE STRING "CXX compiler flags for OpenMP parallelization")
+  set(OpenMP_C_FLAGS /openmp:llvm
+      CACHE STRING "C compiler flags for OpenMP parallelization")
 else()
   option(TTK_ENABLE_OPENMP "Enable OpenMP support" TRUE)
+  option(TTK_ENABLE_OPENMP4 "Enable OpenMP4 support" TRUE)
+  mark_as_advanced(TTK_ENABLE_OPENMP4)
 endif()
 if(TTK_ENABLE_OPENMP)
   find_package(OpenMP REQUIRED)
@@ -258,7 +264,7 @@ if(TTK_ENABLE_OPENMP)
         OFF
         CACHE
         BOOL
-        "Enable priorities on opnemp tasks"
+        "Enable priorities on openmp tasks"
         FORCE
         )
     endif()

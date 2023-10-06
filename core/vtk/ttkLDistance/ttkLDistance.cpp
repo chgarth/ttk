@@ -1,5 +1,6 @@
 #include <vtkDataArray.h>
 #include <vtkDataSet.h>
+#include <vtkDoubleArray.h>
 #include <vtkInformation.h>
 #include <vtkObjectFactory.h>
 #include <vtkPointData.h>
@@ -73,10 +74,10 @@ int ttkLDistance::RequestData(vtkInformation *ttkNotUsed(request),
 #endif
 
   // Allocate memory for the output scalar field, based on the first input.
-  vtkSmartPointer<vtkDataArray> outputScalarField{
+  vtkSmartPointer<vtkDataArray> const outputScalarField{
     inputScalarField1->NewInstance()};
 
-  ttk::SimplexId numberOfPoints = input->GetNumberOfPoints();
+  ttk::SimplexId const numberOfPoints = input->GetNumberOfPoints();
 
   outputScalarField->SetNumberOfTuples(numberOfPoints);
   outputScalarField->SetName(DistanceFieldName.data());
@@ -90,6 +91,13 @@ int ttkLDistance::RequestData(vtkInformation *ttkNotUsed(request),
       static_cast<VTK_TT *>(ttkUtils::GetVoidPointer(outputScalarField)),
       DistanceType, numberOfPoints));
   }
+
+  vtkNew<vtkDoubleArray> meanDistanceArray{};
+  const std::string arrayName = "L" + DistanceType + "-distance";
+  meanDistanceArray->SetName(arrayName.c_str());
+  meanDistanceArray->SetNumberOfTuples(1);
+  meanDistanceArray->SetTuple1(0, this->getResult());
+  output->GetFieldData()->AddArray(meanDistanceArray);
 
   return 1;
 }

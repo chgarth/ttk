@@ -25,10 +25,10 @@ namespace ttk {
   protected:
     int assignmentSolverID_ = 0;
     bool epsilon1UseFarthestSaddle_ = false;
-    double epsilonTree1_ = 5;
-    double epsilonTree2_ = 5;
-    double epsilon2Tree1_ = 95;
-    double epsilon2Tree2_ = 95;
+    double epsilonTree1_ = 0;
+    double epsilonTree2_ = 0;
+    double epsilon2Tree1_ = 100;
+    double epsilon2Tree2_ = 100;
     double epsilon3Tree1_ = 100;
     double epsilon3Tree2_ = 100;
     double persistenceThreshold_ = 0;
@@ -40,18 +40,19 @@ namespace ttk {
     int wassersteinPower_ = 2;
     bool normalizedWasserstein_ = true;
     bool keepSubtree_ = false;
+    double nonMatchingWeight_ = 1.0;
 
-    bool distanceSquared_ = true; // squared root
+    bool distanceSquaredRoot_ = true; // squared root
     bool useFullMerge_ = false;
+
+    bool isPersistenceDiagram_ = false;
+    bool convertToDiagram_ = false;
 
     // Double input
     double mixtureCoefficient_ = 0.5;
     bool useDoubleInput_ = false;
 
     // Old
-    bool progressiveComputation_ = false;
-    bool rescaledWasserstein_ = false;
-    double normalizedWassersteinReg_ = 0.;
     bool parallelize_ = true;
     int nodePerTask_ = 32;
     bool cleanTree_ = true;
@@ -118,30 +119,20 @@ namespace ttk {
       normalizedWasserstein_ = normalizedWasserstein;
     }
 
-    void setRescaledWasserstein(bool rescaledWasserstein) {
-      rescaledWasserstein_ = rescaledWasserstein;
-    }
-
-    void setNormalizedWassersteinReg(double normalizedWassersteinReg) {
-      normalizedWassersteinReg_ = normalizedWassersteinReg;
-    }
-
     void setKeepSubtree(bool keepSubtree) {
       keepSubtree_ = keepSubtree;
     }
 
-    void setProgressiveComputation(bool progressive) {
-      progressiveComputation_ = progressive;
-      /*if(progressiveComputation_)
-        Preprocess = false;*/
+    void setNonMatchingWeight(double weight) {
+      nonMatchingWeight_ = weight;
     }
 
     void setBarycenterMergeTree(bool imt) {
       barycenterMergeTree_ = imt;
     }
 
-    void setDistanceSquared(bool distanceSquared) {
-      distanceSquared_ = distanceSquared;
+    void setDistanceSquaredRoot(bool distanceSquaredRoot) {
+      distanceSquaredRoot_ = distanceSquaredRoot;
     }
 
     void setUseMinMaxPair(bool useMinMaxPair) {
@@ -154,6 +145,10 @@ namespace ttk {
 
     void setCleanTree(bool clean) {
       cleanTree_ = clean;
+    }
+
+    void setIsPersistenceDiagram(bool isPD) {
+      isPersistenceDiagram_ = isPD;
     }
 
     std::vector<std::vector<int>> getTreesNodeCorr() {
@@ -182,12 +177,14 @@ namespace ttk {
              + mixDistancesWeight(false) * distance2;
     }
 
-    void mixDistancesMatrix(std::vector<std::vector<double>> &distanceMatrix,
-                            std::vector<std::vector<double>> &distanceMatrix2) {
+    template <class dataType>
+    void
+      mixDistancesMatrix(std::vector<std::vector<dataType>> &distanceMatrix,
+                         std::vector<std::vector<dataType>> &distanceMatrix2) {
       for(unsigned int i = 0; i < distanceMatrix.size(); ++i)
         for(unsigned int j = 0; j < distanceMatrix[i].size(); ++j)
-          distanceMatrix[i][j]
-            = mixDistances<double>(distanceMatrix[i][j], distanceMatrix2[i][j]);
+          distanceMatrix[i][j] = mixDistances<dataType>(
+            distanceMatrix[i][j], distanceMatrix2[i][j]);
     }
 
     // ------------------------------------------------------------------------
@@ -202,8 +199,8 @@ namespace ttk {
       bool fullMerge = (epsilon == 100);
       fullMerge &= useFullMerge_;
 
-      treeNodeMerged
-        = std::vector<std::vector<ftm::idNode>>(tree->getNumberOfNodes());
+      treeNodeMerged.clear();
+      treeNodeMerged.resize(tree->getNumberOfNodes());
 
       if(mergeByPersistence)
         ftm::computePersistencePairs<dataType>(
@@ -219,7 +216,7 @@ namespace ttk {
             maxValue = (maxValue < iValue) ? iValue : maxValue;
             minValue = (minValue > iValue) ? iValue : minValue;
           } else {
-            ftm::idNode parent = tree->getParentSafe(i);
+            ftm::idNode const parent = tree->getParentSafe(i);
             dataType parentValue = tree->getValue<dataType>(parent);
             dataType tempMax = std::max(iValue, parentValue);
             dataType tempMin = std::min(iValue, parentValue);
@@ -230,7 +227,7 @@ namespace ttk {
           }
         }
       }
-      double epsilonOri = epsilon;
+      double const epsilonOri = epsilon;
       epsilon = (maxValue - minValue) * epsilon / 100;
 
       // For Farthest Saddle option
@@ -254,7 +251,7 @@ namespace ttk {
       std::queue<ftm::idNode> queue;
       queue.emplace(tree->getRoot());
       while(!queue.empty()) {
-        ftm::idNode node = queue.front();
+        ftm::idNode const node = queue.front();
         queue.pop();
         nodeStack.emplace(node);
         std::vector<ftm::idNode> children;
@@ -264,10 +261,10 @@ namespace ttk {
       }
       // Iterate through nodes
       while(!nodeStack.empty()) {
-        ftm::idNode nodeId = nodeStack.top();
+        ftm::idNode const nodeId = nodeStack.top();
         nodeStack.pop();
         if(!tree->isRoot(nodeId) and !tree->isLeaf(nodeId)) {
-          ftm::idNode parentNodeId = tree->getParentSafe(nodeId);
+          ftm::idNode const parentNodeId = tree->getParentSafe(nodeId);
           dataType nodeValue = tree->getValue<dataType>(nodeId);
           if(epsilon1UseFarthestSaddle_)
             nodeValue = tree->getValue<dataType>(farthestSaddle[nodeId]);
@@ -329,9 +326,9 @@ namespace ttk {
       std::queue<ftm::idNode> queue;
       queue.emplace(tree->getRoot());
       while(!queue.empty()) {
-        ftm::idNode node = queue.front();
+        ftm::idNode const node = queue.front();
         queue.pop();
-        ftm::idNode nodeParent = tree->getParentSafe(node);
+        ftm::idNode const nodeParent = tree->getParentSafe(node);
         if(!tree->isRoot(node)) {
           const double nodePers = tree->getNodePersistence<dataType>(node);
           const double nodeParentPers
@@ -360,7 +357,7 @@ namespace ttk {
       std::vector<std::tuple<ftm::idNode, ftm::idNode, dataType>> pairs;
       tree->getPersistencePairsFromTree(pairs, useBD);
       n = std::max(n, 2); // keep at least 2 pairs
-      int index = std::max((int)(pairs.size() - n), 0);
+      int const index = std::max((int)(pairs.size() - n), 0);
       dataType threshold = std::get<2>(pairs[index]) * (1.0 - 1e-6)
                            / tree->getMaximumPersistence<dataType>() * 100.0;
       persistenceThresholding<dataType>(tree, threshold);
@@ -370,21 +367,29 @@ namespace ttk {
     void persistenceThresholding(ftm::FTMTree_MT *tree,
                                  double persistenceThresholdT,
                                  std::vector<ftm::idNode> &deletedNodes) {
-      dataType threshold
-        = persistenceThresholdT / 100 * tree->getMaximumPersistence<dataType>();
+      ftm::idNode const treeRoot = tree->getRoot();
+      dataType maxPers = tree->getMaximumPersistence<dataType>();
+      dataType threshold = persistenceThresholdT / 100 * maxPers;
 
       dataType secondMax = tree->getSecondMaximumPersistence<dataType>();
+      bool keepOneZeroPersistencePair = (secondMax == 0 or maxPers == 0);
       if(threshold >= secondMax)
         threshold = (1.0 - 1e-6) * secondMax;
 
       for(unsigned int i = 0; i < tree->getNumberOfNodes(); ++i) {
+        if(tree->isRoot(i))
+          continue;
         dataType nodePers = tree->getNodePersistence<dataType>(i);
+        if(nodePers == 0 and keepOneZeroPersistencePair
+           and tree->getParentSafe(i) == treeRoot) {
+          keepOneZeroPersistencePair = false;
+          continue;
+        }
         if((nodePers == 0 or nodePers <= threshold
-            or not tree->isNodeOriginDefined(i))
-           and !tree->isRoot(i)) {
+            or not tree->isNodeOriginDefined(i))) {
           tree->deleteNode(i);
           deletedNodes.push_back(i);
-          ftm::idNode nodeOrigin = tree->getNode(i)->getOrigin();
+          ftm::idNode const nodeOrigin = tree->getNode(i)->getOrigin();
           if(tree->isNodeOriginDefined(i)
              and tree->getNode(nodeOrigin)->getOrigin() == (int)i) {
             tree->deleteNode(nodeOrigin);
@@ -439,9 +444,6 @@ namespace ttk {
 
     template <class dataType>
     void preprocessTree(ftm::FTMTree_MT *tree,
-                        double epsilon,
-                        double persistenceThreshold,
-                        std::vector<std::vector<ftm::idNode>> &treeNodeMerged,
                         bool deleteInconsistentNodes = true) {
       if(deleteInconsistentNodes) {
         // Manage inconsistent critical points
@@ -466,18 +468,11 @@ namespace ttk {
       }
 
       // Compute persistence pairs
-      auto pairs = ftm::computePersistencePairs<dataType>(tree);
-      // Verify pairs
-      verifyOrigins<dataType>(tree);
-
-      // Delete null persistence pairs and persistence thresholding
-      std::vector<ftm::idNode> deletedNodes;
-      persistenceThresholding<dataType>(
-        tree, persistenceThreshold, deletedNodes);
-
-      // Merge saddle points according epsilon
-      if(epsilon != 0)
-        mergeSaddle<dataType>(tree, epsilon, treeNodeMerged);
+      if(not isPersistenceDiagram_ or convertToDiagram_) {
+        auto pairs = ftm::computePersistencePairs<dataType>(tree);
+        // Verify pairs
+        verifyOrigins<dataType>(tree);
+      }
     }
 
     template <class dataType>
@@ -486,11 +481,11 @@ namespace ttk {
       std::vector<std::vector<ftm::idNode>> &treeNodeMerged) {
       ftm::FTMTree_MT *treeNew = tree;
 
-      ftm::idNode root = treeNew->getRoot();
+      ftm::idNode const root = treeNew->getRoot();
 
       // Manage when there is only one pair
       if(tree->isThereOnlyOnePersistencePair()) {
-        ftm::idNode rootOrigin = treeNew->getNode(root)->getOrigin();
+        ftm::idNode const rootOrigin = treeNew->getNode(root)->getOrigin();
         treeNew->getNode(rootOrigin)->setOrigin(rootOrigin);
         return treeNew;
       }
@@ -504,9 +499,9 @@ namespace ttk {
       std::queue<ftm::idNode> queueNodes;
       queueNodes.emplace(root);
       while(!queueNodes.empty()) {
-        ftm::idNode node = queueNodes.front();
+        ftm::idNode const node = queueNodes.front();
         queueNodes.pop();
-        ftm::idNode nodeOrigin = treeNew->getNode(node)->getOrigin();
+        ftm::idNode const nodeOrigin = treeNew->getNode(node)->getOrigin();
         if(node == nodeOrigin
            or treeNew->getNodeLevel(node) > treeNew->getNodeLevel(nodeOrigin))
           continue;
@@ -529,8 +524,8 @@ namespace ttk {
 
         // Process each origin
         for(auto stackTuple : vecOrigins) {
-          ftm::idNode nodeOriginT = std::get<0>(stackTuple);
-          int nodeOriginTID = std::get<1>(stackTuple);
+          ftm::idNode const nodeOriginT = std::get<0>(stackTuple);
+          int const nodeOriginTID = std::get<1>(stackTuple);
           if(nodeDone[nodeOriginT]
              and nodeDone[tree->getNode(nodeOriginT)->getOrigin()])
             continue;
@@ -551,7 +546,7 @@ namespace ttk {
           // Set nodes in the branch as childrens of the node
           ftm::idNode parentNodeOrigin = treeNew->getParentSafe(nodeOriginT);
           while(parentNodeOrigin != node) {
-            ftm::idNode oldParentNodeOrigin
+            ftm::idNode const oldParentNodeOrigin
               = treeNew->getParentSafe(parentNodeOrigin);
             treeNew->setParent(parentNodeOrigin, newParent);
             parentNodeOrigin = oldParentNodeOrigin;
@@ -568,7 +563,7 @@ namespace ttk {
           // Push childrens of the node to the stack to process them
           std::vector<ftm::idNode> childrenNode;
           treeNew->getChildren(newParent, childrenNode);
-          for(ftm::idNode children : childrenNode)
+          for(ftm::idNode const children : childrenNode)
             if(!treeNew->isLeaf(children))
               queueNodes.emplace(children);
         }
@@ -582,10 +577,11 @@ namespace ttk {
 
     template <class dataType>
     void dontUseMinMaxPair(ftm::FTMTree_MT *tree) {
-      ftm::idNode treeRoot = tree->getRoot();
+      ftm::idNode const treeRoot = tree->getRoot();
       // Full merge case, search for the origin
       if(tree->getNode(treeRoot)->getOrigin() == (int)treeRoot) {
-        ftm::idNode nodeIdToDelete = tree->getMergedRootOrigin<dataType>();
+        ftm::idNode const nodeIdToDelete
+          = tree->getMergedRootOrigin<dataType>();
         if(nodeIdToDelete != treeRoot
            and not tree->isNodeIdInconsistent(nodeIdToDelete)) {
           if(tree->isThereOnlyOnePersistencePair())
@@ -595,7 +591,7 @@ namespace ttk {
         }
         // Classic case
       } else {
-        ftm::idNode rootOrigin = tree->getNode(treeRoot)->getOrigin();
+        ftm::idNode const rootOrigin = tree->getNode(treeRoot)->getOrigin();
         if(tree->isThereOnlyOnePersistencePair())
           tree->getNode(rootOrigin)->setOrigin(rootOrigin);
         else
@@ -631,71 +627,82 @@ namespace ttk {
     }
 
     template <class dataType>
-    ftm::FTMTree_MT *preprocessingPipeline(ftm::MergeTree<dataType> &mTree,
-                                           double epsilonTree,
-                                           double epsilon2Tree,
-                                           double epsilon3Tree,
-                                           bool branchDecompositionT,
-                                           bool useMinMaxPairT,
-                                           bool cleanTreeT,
-                                           double persistenceThreshold,
-                                           std::vector<int> &nodeCorr,
-                                           bool deleteInconsistentNodes
-                                           = true) {
+    void preprocessingPipeline(ftm::MergeTree<dataType> &mTree,
+                               double epsilonTree,
+                               double epsilon2Tree,
+                               double epsilon3Tree,
+                               bool branchDecompositionT,
+                               bool useMinMaxPairT,
+                               bool cleanTreeT,
+                               double persistenceThreshold,
+                               std::vector<int> &nodeCorr,
+                               bool deleteInconsistentNodes = true) {
       Timer t_proc;
 
       ftm::FTMTree_MT *tree = &(mTree.tree);
 
+      preprocessTree<dataType>(tree, deleteInconsistentNodes);
+
+      // - Delete null persistence pairs and persistence thresholding
+      persistenceThresholding<dataType>(tree, persistenceThreshold);
+
+      // - Merge saddle points according epsilon
       std::vector<std::vector<ftm::idNode>> treeNodeMerged(
         tree->getNumberOfNodes());
-      preprocessTree<dataType>(tree, epsilonTree, persistenceThreshold,
-                               treeNodeMerged, deleteInconsistentNodes);
-      ftm::FTMTree_MT *treeOld = tree;
+      if(not isPersistenceDiagram_ or convertToDiagram_) {
+        if(epsilonTree != 0)
+          mergeSaddle<dataType>(tree, epsilonTree, treeNodeMerged);
+      }
 
+      // - Compute branch decomposition
       // verifyPairsTree(tree);
-      if(branchDecompositionT)
+      if(branchDecompositionT
+         and (not isPersistenceDiagram_ or convertToDiagram_))
         tree = computeBranchDecomposition<dataType>(tree, treeNodeMerged);
 
+      // - Delete multi pers pairs
       if(deleteMultiPersPairs_)
         deleteMultiPersPairs<dataType>(tree, branchDecompositionT);
 
+      // - Remove min max pair
       // verifyPairsTree(tree);
       if(not useMinMaxPairT)
         dontUseMinMaxPair<dataType>(tree);
 
-      if(branchDecompositionT)
+      // - Epsilon 2 and 3 processing
+      if(branchDecompositionT and not isPersistenceDiagram_)
         persistenceMerging<dataType>(tree, epsilon2Tree, epsilon3Tree);
 
+      // - Tree cleaning (remove unused nodes)
       if(cleanTreeT) {
         ftm::cleanMergeTree<dataType>(mTree, nodeCorr, branchDecompositionT);
         tree = &(mTree.tree);
         reverseNodeCorr(tree, nodeCorr);
       }
 
+      // - Root number verification
       if(tree->getNumberOfRoot() != 1)
         printErr("preprocessingPipeline tree->getNumberOfRoot() != 1");
 
+      // - Time printing
       // verifyPairsTree(tree);
       auto t_preproc_time = t_proc.getElapsedTime();
       std::stringstream ss;
       ss << "TIME PREPROC.   = " << t_preproc_time;
       printMsg(ss.str(), debug::Priority::VERBOSE);
-
-      return treeOld;
     }
 
     template <class dataType>
-    ftm::FTMTree_MT *preprocessingPipeline(ftm::MergeTree<dataType> &mTree,
-                                           double epsilonTree,
-                                           double epsilon2Tree,
-                                           double epsilon3Tree,
-                                           bool branchDecompositionT,
-                                           bool useMinMaxPairT,
-                                           bool cleanTreeT,
-                                           std::vector<int> &nodeCorr,
-                                           bool deleteInconsistentNodes
-                                           = true) {
-      return preprocessingPipeline<dataType>(
+    void preprocessingPipeline(ftm::MergeTree<dataType> &mTree,
+                               double epsilonTree,
+                               double epsilon2Tree,
+                               double epsilon3Tree,
+                               bool branchDecompositionT,
+                               bool useMinMaxPairT,
+                               bool cleanTreeT,
+                               std::vector<int> &nodeCorr,
+                               bool deleteInconsistentNodes = true) {
+      preprocessingPipeline<dataType>(
         mTree, epsilonTree, epsilon2Tree, epsilon3Tree, branchDecompositionT,
         useMinMaxPairT, cleanTreeT, persistenceThreshold_, nodeCorr,
         deleteInconsistentNodes);
@@ -723,6 +730,14 @@ namespace ttk {
     void mtsFlattening(std::vector<ftm::MergeTree<dataType>> &mts) {
       for(auto &mt : mts)
         mtFlattening(mt);
+    }
+
+    double getSizeLimitMetric(std::vector<ftm::FTMTree_MT *> &trees) {
+      std::array<double, 3> stats;
+      getTreesStats(trees, stats);
+      auto meanNodes = stats[0];
+      unsigned int const n = trees.size();
+      return meanNodes * n;
     }
 
     // ------------------------------------------------------------------------
@@ -779,7 +794,7 @@ namespace ttk {
       int maxIndex = tree->getMergedRootOrigin<dataType>();
 
       // Link node of the min max pair with the root
-      ftm::idNode treeRoot = tree->getRoot();
+      ftm::idNode const treeRoot = tree->getRoot();
       dataType oldOriginValue
         = tree->getValue<dataType>(tree->getNode(maxIndex)->getOrigin());
       tree->getNode(maxIndex)->setOrigin(treeRoot);
@@ -787,21 +802,31 @@ namespace ttk {
       return std::make_tuple(maxIndex, oldOriginValue);
     }
 
+    // TODO fix bug when one multi pers. pairs is moved up with epsilon 2 and 3
+    // but not its brothers
     template <class dataType>
     void branchDecompositionToTree(ftm::FTMTree_MT *tree) {
-      ftm::idNode treeRoot = tree->getRoot();
+      ftm::idNode const treeRoot = tree->getRoot();
+
+      // Get original tree message
+      std::stringstream const oriPrintTree = tree->printTree();
+      std::stringstream const oriPrintPairs
+        = tree->printPairsFromTree<dataType>(true);
+      std::stringstream const oriPrintMultiPers
+        = tree->printMultiPersPairsFromTree<dataType>(true);
 
       // One pair case
       if(tree->isThereOnlyOnePersistencePair()) {
-        ftm::idNode treeRootOrigin = tree->getNode(treeRoot)->getOrigin();
+        ftm::idNode const treeRootOrigin = tree->getNode(treeRoot)->getOrigin();
         tree->getNode(treeRootOrigin)->setOrigin(treeRoot);
         return;
       }
 
       // Manage full merge and dontuseMinMaxPair_
-      bool isFM = tree->isFullMerge();
+      bool const isFM = tree->isFullMerge();
       if(isFM) {
-        ftm::idNode mergedRootOrigin = tree->getMergedRootOrigin<dataType>();
+        ftm::idNode const mergedRootOrigin
+          = tree->getMergedRootOrigin<dataType>();
         if(not tree->isNodeIdInconsistent(mergedRootOrigin)
            and mergedRootOrigin != treeRoot)
           tree->getNode(treeRoot)->setOrigin(mergedRootOrigin);
@@ -819,7 +844,7 @@ namespace ttk {
       };
       auto getIndexNotMultiPers = [&](int index, ftm::FTMTree_MT *treeT,
                                       std::vector<ftm::idNode> &children) {
-        while(treeT->isMultiPersPair(children[index]))
+        while(index >= 0 and treeT->isMultiPersPair(children[index]))
           --index;
         return index;
       };
@@ -864,16 +889,16 @@ namespace ttk {
         for(unsigned int i = 1; i < children.size(); ++i) {
           if(tree->isMultiPersPair(children[i]))
             continue;
-          int index = getIndexNotMultiPers(i - 1, tree, children);
+          int const index = getIndexNotMultiPers(i - 1, tree, children);
           if(index >= 0)
             nodeParent.emplace_back(children[i], children[index]);
         }
 
-        bool multiPersPair
+        bool const multiPersPair
           = tree->getNode(nodeOrigin)->getOrigin() != (int)node;
         if(not multiPersPair) {
           if(not isFM) {
-            int index
+            int const index
               = getIndexNotMultiPers(children.size() - 1, tree, children);
             nodeParent.emplace_back(nodeOrigin, children[index]);
           } else
@@ -903,6 +928,9 @@ namespace ttk {
       for(unsigned int i = 0; i < tree->getNumberOfNodes(); ++i)
         if(tree->getNode(i)->getNumberOfDownSuperArcs() == 1
            and tree->getNode(i)->getNumberOfUpSuperArcs() == 1) {
+          printMsg(oriPrintPairs.str());
+          printMsg(oriPrintMultiPers.str());
+          printMsg(oriPrintTree.str());
           printMsg(tree->printTree().str());
           std::stringstream ss;
           auto iOrigin = tree->getNode(i)->getOrigin();
@@ -923,9 +951,9 @@ namespace ttk {
       std::queue<ftm::idNode> queue;
       queue.emplace(tree->getRoot());
       while(!queue.empty()) {
-        ftm::idNode node = queue.front();
+        ftm::idNode const node = queue.front();
         queue.pop();
-        ftm::idNode nodeOrigin = tree->getNode(node)->getOrigin();
+        ftm::idNode const nodeOrigin = tree->getNode(node)->getOrigin();
         if(!tree->isLeaf(node)) {
           std::vector<ftm::idNode> children;
           tree->getChildren(node, children);
@@ -934,7 +962,7 @@ namespace ttk {
           for(auto child : children) {
             ftm::idNode lowestNode = tree->getLowestNode<dataType>(child);
             lowestNodes.push_back(lowestNode);
-            ftm::idNode lowestNodeOrigin
+            ftm::idNode const lowestNodeOrigin
               = tree->getNode(lowestNode)->getOrigin();
             if(not tree->isNodeAlone(lowestNodeOrigin)
                and lowestNodeOrigin != node)
@@ -948,7 +976,8 @@ namespace ttk {
             dataType lowestNodeOriginVal
               = tree->getValue<dataType>(lowestNodeOrigin);
             ftm::idNode branchOriginT = branchOrigin;
-            ftm::idNode branchRoot = tree->getNode(branchOrigin)->getOrigin();
+            ftm::idNode const branchRoot
+              = tree->getNode(branchOrigin)->getOrigin();
             while(branchRoot != branchOriginT) {
               dataType val
                 = tree->getValue<dataType>(tree->getParentSafe(branchOriginT));
@@ -983,7 +1012,7 @@ namespace ttk {
             "[postprocessingPipeline] mergedRootOrigin inconsistent id.");
       }
       if(branchDecomposition_) {
-        if(tree->getRealNumberOfNodes() != 0)
+        if(not isPersistenceDiagram_ and tree->getRealNumberOfNodes() != 0)
           branchDecompositionToTree<dataType>(tree);
       } else
         putBackMergedNodes<dataType>(tree);
@@ -1000,24 +1029,24 @@ namespace ttk {
         &outputMatching) {
       std::vector<std::tuple<ftm::idNode, ftm::idNode, double>> toAdd;
       for(auto mTuple : outputMatching) {
-        ftm::idNode node1 = std::get<0>(mTuple);
-        ftm::idNode node2 = std::get<1>(mTuple);
-        double cost = std::get<2>(mTuple);
-        ftm::idNode node1Origin = tree1->getNode(node1)->getOrigin();
-        ftm::idNode node2Origin = tree2->getNode(node2)->getOrigin();
+        ftm::idNode const node1 = std::get<0>(mTuple);
+        ftm::idNode const node2 = std::get<1>(mTuple);
+        double const cost = std::get<2>(mTuple);
+        ftm::idNode const node1Origin = tree1->getNode(node1)->getOrigin();
+        ftm::idNode const node2Origin = tree2->getNode(node2)->getOrigin();
 
-        int node1Level = tree1->getNodeLevel(node1);
-        int node1OriginLevel = tree1->getNodeLevel(node1Origin);
-        int node2Level = tree2->getNodeLevel(node2);
-        int node2OriginLevel = tree2->getNodeLevel(node2Origin);
+        int const node1Level = tree1->getNodeLevel(node1);
+        int const node1OriginLevel = tree1->getNodeLevel(node1Origin);
+        int const node2Level = tree2->getNodeLevel(node2);
+        int const node2OriginLevel = tree2->getNodeLevel(node2Origin);
 
-        ftm::idNode node1Higher
+        ftm::idNode const node1Higher
           = (node1Level > node1OriginLevel) ? node1 : node1Origin;
-        ftm::idNode node1Lower
+        ftm::idNode const node1Lower
           = (node1Level > node1OriginLevel) ? node1Origin : node1;
-        ftm::idNode node2Higher
+        ftm::idNode const node2Higher
           = (node2Level > node2OriginLevel) ? node2 : node2Origin;
-        ftm::idNode node2Lower
+        ftm::idNode const node2Lower
           = (node2Level > node2OriginLevel) ? node2Origin : node2;
 
         if(((tree1->isRoot(node1Higher) and tree1->isFullMerge())
@@ -1087,22 +1116,9 @@ namespace ttk {
     }
 
     template <class dataType>
-    dataType regularizationCost(ftm::FTMTree_MT *tree, ftm::idNode nodeId) {
-      dataType shiftMin1 = getMinMaxLocal<dataType>(tree, nodeId);
-      dataType shiftMax1 = getMinMaxLocal<dataType>(tree, nodeId, false);
-      return computeDistance<dataType>(
-        shiftMin1, 0, shiftMax1, 0, wassersteinPower_);
-    }
-
-    template <class dataType>
     dataType deleteCost(ftm::FTMTree_MT *tree, ftm::idNode nodeId) {
       dataType cost = 0;
       dataType newMin = 0.0, newMax = 1.0;
-      if(normalizedWasserstein_ and rescaledWasserstein_) {
-        auto newMinMax = getNewMinMax<dataType>(tree, nodeId, tree, nodeId);
-        newMin = std::get<0>(newMinMax);
-        newMax = std::get<1>(newMinMax);
-      }
       // Get birth/death
       auto birthDeath
         = normalizedWasserstein_
@@ -1117,10 +1133,7 @@ namespace ttk {
       // Divide cost by two if not branch decomposition and not merged
       /*if(! branchDecomposition_ and ! tree->isNodeMerged(nodeId))
         cost /= 2;*/
-      // Regularize
-      if(normalizedWasserstein_ and normalizedWassersteinReg_ != 0)
-        cost += normalizedWassersteinReg_
-                * regularizationCost<dataType>(tree, nodeId);
+      cost *= nonMatchingWeight_;
 
       return cost;
     }
@@ -1131,30 +1144,12 @@ namespace ttk {
     }
 
     template <class dataType>
-    dataType regularizationCost2(ftm::FTMTree_MT *tree1,
-                                 ftm::idNode nodeId1,
-                                 ftm::FTMTree_MT *tree2,
-                                 ftm::idNode nodeId2) {
-      dataType shiftMin1 = getMinMaxLocal<dataType>(tree1, nodeId1);
-      dataType shiftMax1 = getMinMaxLocal<dataType>(tree1, nodeId1, false);
-      dataType shiftMin2 = getMinMaxLocal<dataType>(tree2, nodeId2);
-      dataType shiftMax2 = getMinMaxLocal<dataType>(tree2, nodeId2, false);
-      return computeDistance<dataType>(
-        shiftMin1, shiftMax1, shiftMin2, shiftMax2, wassersteinPower_);
-    }
-
-    template <class dataType>
     dataType relabelCostOnly(ftm::FTMTree_MT *tree1,
                              ftm::idNode nodeId1,
                              ftm::FTMTree_MT *tree2,
                              ftm::idNode nodeId2) {
       dataType cost = 0;
       dataType newMin = 0.0, newMax = 1.0;
-      if(normalizedWasserstein_ and rescaledWasserstein_) {
-        auto newMinMax = getNewMinMax<dataType>(tree1, nodeId1, tree2, nodeId2);
-        newMin = std::get<0>(newMinMax);
-        newMax = std::get<1>(newMinMax);
-      }
       // Get birth/death of the first tree
       auto birthDeath1
         = normalizedWasserstein_
@@ -1175,10 +1170,6 @@ namespace ttk {
       // Divide cost by two if not branch decomposition and not merged
       /*bool merged = isNodeMerged(tree1, nodeId1) or isNodeMerged(tree2,
       nodeId2); if(! branchDecomposition_ and ! merged) cost /= 2;*/
-      // Regularize
-      if(normalizedWasserstein_ and normalizedWassersteinReg_ != 0)
-        cost += normalizedWassersteinReg_
-                * regularizationCost2<dataType>(tree1, nodeId1, tree2, nodeId2);
 
       return cost;
     }
@@ -1195,12 +1186,14 @@ namespace ttk {
 
       // Compute relabel cost
       dataType cost = relabelCostOnly<dataType>(tree1, nodeId1, tree2, nodeId2);
-      // Compute deleteInsert cost
-      dataType deleteInsertCost = deleteCost<dataType>(tree1, nodeId1)
-                                  + insertCost<dataType>(tree2, nodeId2);
 
-      if(keepSubtree_ and deleteInsertCost < cost)
-        cost = deleteInsertCost;
+      if(keepSubtree_) {
+        // Compute deleteInsert cost
+        dataType deleteInsertCost = deleteCost<dataType>(tree1, nodeId1)
+                                    + insertCost<dataType>(tree2, nodeId2);
+        if(deleteInsertCost < cost)
+          cost = deleteInsertCost;
+      }
 
       return cost;
     }
@@ -1215,7 +1208,11 @@ namespace ttk {
                                             "persistenceThreshold",
                                             "branchDecomposition",
                                             "normalizedWasserstein",
-                                            "keepSubtree"};
+                                            "keepSubtree",
+                                            "isPersistenceDiagram",
+                                            "deleteMultiPersPairs",
+                                            "epsilon1UseFarthestSaddle",
+                                            "mixtureCoefficient"};
     }
 
     double getParamValueFromName(std::string &paramName) {
@@ -1234,6 +1231,14 @@ namespace ttk {
         value = normalizedWasserstein_;
       else if(paramName == "keepSubtree")
         value = keepSubtree_;
+      else if(paramName == "isPersistenceDiagram")
+        value = isPersistenceDiagram_;
+      else if(paramName == "deleteMultiPersPairs")
+        value = deleteMultiPersPairs_;
+      else if(paramName == "epsilon1UseFarthestSaddle")
+        value = epsilon1UseFarthestSaddle_;
+      else if(paramName == "mixtureCoefficient")
+        value = mixtureCoefficient_;
       return value;
     }
 
@@ -1252,6 +1257,14 @@ namespace ttk {
         normalizedWasserstein_ = value;
       else if(paramName == "keepSubtree")
         keepSubtree_ = value;
+      else if(paramName == "isPersistenceDiagram")
+        isPersistenceDiagram_ = value;
+      else if(paramName == "deleteMultiPersPairs")
+        deleteMultiPersPairs_ = value;
+      else if(paramName == "epsilon1UseFarthestSaddle")
+        epsilon1UseFarthestSaddle_ = value;
+      else if(paramName == "mixtureCoefficient")
+        mixtureCoefficient_ = value;
     }
 
     void getTreesStats(std::vector<ftm::FTMTree_MT *> &trees,
@@ -1276,7 +1289,7 @@ namespace ttk {
       std::array<double, 3> stats;
       getTreesStats(trees, stats);
       int avgNodes = stats[0], avgNodesT = stats[1];
-      double avgDepth = stats[2];
+      double const avgDepth = stats[2];
       std::stringstream ss;
       ss << trees.size() << " trees average [node: " << avgNodes << " / "
          << avgNodesT << ", depth: " << avgDepth << "]";
@@ -1292,7 +1305,7 @@ namespace ttk {
 
     template <class dataType>
     void printTableVector(std::vector<std::vector<dataType>> &table) {
-      std::streamsize ssize = std::cout.precision();
+      std::streamsize const ssize = std::cout.precision();
       std::stringstream ss;
       ss << "      ";
       for(unsigned int j = 0; j < table[0].size(); ++j)
@@ -1359,7 +1372,7 @@ namespace ttk {
     void printPairs(
       std::vector<std::tuple<SimplexId, SimplexId, dataType>> &treePairs) {
       for(auto pair : treePairs) {
-        std::stringstream ss;
+        std::stringstream const ss;
         ss << std::get<0>(pair) << " _ " << std::get<1>(pair) << " _ "
            << std::get<2>(pair);
         printMsg(ss.str());

@@ -46,7 +46,7 @@ namespace ttk {
     }
 
     /**
-     * TODO 3: Implmentation of the algorithm.
+     * TODO 3: Implementation of the algorithm.
      *
      *         Note: If the algorithm requires a triangulation then this
      *               method must be called after the triangulation has been
@@ -84,7 +84,7 @@ namespace ttk {
                        this->threadNumber_, ttk::debug::LineMode::REPLACE);
 
         // compute the average of each vertex in parallel
-        size_t nVertices = triangulation->getNumberOfVertices();
+        size_t const nVertices = triangulation->getNumberOfVertices();
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
@@ -93,14 +93,14 @@ namespace ttk {
           outputData[i] = inputData[i];
 
           // add neighbor values to average
-          size_t nNeighbors = triangulation->getVertexNeighborNumber(i);
+          size_t const nNeighbors = triangulation->getVertexNeighborNumber(i);
           ttk::SimplexId neighborId{-1};
           for(size_t j = 0; j < nNeighbors; j++) {
             triangulation->getVertexNeighbor(i, j, neighborId);
             outputData[i] += inputData[neighborId];
           }
 
-          // devide by neighbor number
+          // divide by neighbor number
           outputData[i] /= (nNeighbors + 1);
         }
 

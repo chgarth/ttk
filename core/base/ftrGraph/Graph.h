@@ -265,7 +265,7 @@ namespace ttk {
       }
 
       idSuperArc openArc(const idNode downId, Propagation *p = nullptr) {
-        idSuperArc newArc = arcs_.getNext();
+        idSuperArc const newArc = arcs_.getNext();
         arcs_[newArc].setDownNodeId(downId);
         if(p) {
           arcs_[newArc].setUfProp(p->getId());
@@ -288,7 +288,7 @@ namespace ttk {
       }
 
       idSuperArc makeHiddenArc(Propagation *const lp) {
-        idSuperArc newArc = arcs_.getNext();
+        idSuperArc const newArc = arcs_.getNext();
         arcs_[newArc].hide();
         arcs_[newArc].setUfProp(lp->getId());
         return newArc;
@@ -357,7 +357,7 @@ namespace ttk {
       // tools
 
       // ensure that main arc have valid up/down node even if the merge of
-      // the two arc occured during the computation, leaving some unfinished
+      // the two arc occurred during the computation, leaving some unfinished
       // arcs.
       template <typename ScalarType>
       void consolidateArc(const idSuperArc mainArc,

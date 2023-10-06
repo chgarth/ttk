@@ -68,6 +68,7 @@ int ttkTableDistanceMatrix::RequestData(vtkInformation * /*request*/,
   }
 
   std::vector<vtkAbstractArray *> arrays{};
+  arrays.reserve(ScalarFields.size());
   for(const auto &s : ScalarFields) {
     arrays.push_back(input->GetColumnByName(s.data()));
   }
@@ -88,15 +89,14 @@ int ttkTableDistanceMatrix::RequestData(vtkInformation * /*request*/,
     inputPtrs[i] = vec.data();
   }
 
-  std::vector<std::vector<double>> distanceMatrix{};
-  this->execute(distanceMatrix, inputPtrs, inputMatrix[0].size());
+  std::vector<double *> distanceMatrix(inputMatrix.size());
 
   // zero-padd column name to keep Row Data columns ordered
   const auto zeroPad
     = [](std::string &colName, const size_t numberCols, const size_t colIdx) {
-        std::string max{std::to_string(numberCols - 1)};
-        std::string cur{std::to_string(colIdx)};
-        std::string zer(max.size() - cur.size(), '0');
+        std::string const max{std::to_string(numberCols - 1)};
+        std::string const cur{std::to_string(colIdx)};
+        std::string const zer(max.size() - cur.size(), '0');
         colName.append(zer).append(cur);
       };
 
@@ -108,11 +108,12 @@ int ttkTableDistanceMatrix::RequestData(vtkInformation * /*request*/,
     vtkNew<vtkDoubleArray> col{};
     col->SetNumberOfTuples(numberOfRows);
     col->SetName(name.c_str());
-    for(int j = 0; j < numberOfRows; ++j) {
-      col->SetTuple1(j, distanceMatrix[i][j]);
-    }
     output->AddColumn(col);
+    distanceMatrix[i]
+      = ttkUtils::GetPointer<double>(vtkDoubleArray::SafeDownCast(col));
   }
+
+  this->execute(distanceMatrix, inputPtrs, inputMatrix[0].size());
 
   this->printMsg("Complete (#dimensions: " + std::to_string(numberOfColumns)
                    + ", #points: " + std::to_string(numberOfRows) + ")",

@@ -16,7 +16,7 @@ namespace ttk {
      * @param[in] source Source vertex for the Dijkstra algorithm
      * @param[in] triangulation Access to neighbor vertices
      * @param[out] outputDists Distances to source for every mesh vertex
-     * @param[in] bounds Stop the algorithim if all vertices are reached
+     * @param[in] bounds Stop the algorithm if all vertices are reached
      * @param[in] mask Vector masking the triangulation
      *
      * @return 0 in case of success
@@ -31,11 +31,11 @@ namespace ttk {
                      const std::vector<bool> &mask = std::vector<bool>()) {
 
       // should we process the whole mesh or stop at some point?
-      bool processAllVertices = bounds.empty();
+      bool const processAllVertices = bounds.empty();
       // total number of vertices in the mesh
-      size_t vertexNumber = triangulation.getNumberOfVertices();
+      size_t const vertexNumber = triangulation.getNumberOfVertices();
       // is there a mask?
-      bool isMask = !mask.empty();
+      bool const isMask = !mask.empty();
 
       // check mask size
       if(isMask && mask.size() != vertexNumber) {

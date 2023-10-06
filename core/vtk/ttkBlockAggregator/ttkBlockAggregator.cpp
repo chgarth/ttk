@@ -46,7 +46,7 @@ int ttkBlockAggregator::Reset() {
   return 1;
 }
 
-int copyObjects(vtkDataObject *source, vtkDataObject *copy) {
+static int copyObjects(vtkDataObject *source, vtkDataObject *copy) {
   if(source->IsA("vtkMultiBlockDataSet")) {
     auto sourceAsMB = vtkMultiBlockDataSet::SafeDownCast(source);
     auto copyAsMB = vtkMultiBlockDataSet::SafeDownCast(copy);
@@ -81,7 +81,7 @@ int copyObjects(vtkDataObject *source, vtkDataObject *copy) {
 
 int ttkBlockAggregator::AggregateBlock(vtkDataObject *dataObject) {
   ttk::Timer t;
-  size_t nBlocks = this->AggregatedMultiBlockDataSet->GetNumberOfBlocks();
+  size_t const nBlocks = this->AggregatedMultiBlockDataSet->GetNumberOfBlocks();
   this->printMsg("Adding object add index " + std::to_string(nBlocks), 0,
                  ttk::debug::LineMode::REPLACE);
 
@@ -115,7 +115,7 @@ int ttkBlockAggregator::RequestData(vtkInformation *ttkNotUsed(request),
     this->Reset();
 
   // Add all inputs
-  size_t nInputs = inputVector[0]->GetNumberOfInformationObjects();
+  size_t const nInputs = inputVector[0]->GetNumberOfInformationObjects();
   for(size_t i = 0; i < nInputs; i++) {
     auto input = vtkDataObject::GetData(inputVector[0], i);
 

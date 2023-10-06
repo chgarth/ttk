@@ -64,7 +64,7 @@ namespace ttk {
       this->setDebugMsgPrefix(
         "MergeTreeDistance"); // inherited from Debug: prefix will be printed at
                               // the beginning of every msg
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
       omp_set_nested(1);
 #endif
     }
@@ -75,8 +75,7 @@ namespace ttk {
     }
 
     void setPreprocess(bool preproc) {
-      if(not progressiveComputation_)
-        preprocess_ = preproc;
+      preprocess_ = preproc;
     }
 
     void setPostprocess(bool postproc) {
@@ -126,7 +125,17 @@ namespace ttk {
       AssignmentExhaustive<dataType> solverExhaustive;
       AssignmentMunkres<dataType> solverMunkres;
       AssignmentAuction<dataType> solverAuction;
-      switch(assignmentSolverID_) {
+
+      int const nRows = costMatrix.size() - 1;
+      int const nCols = costMatrix[0].size() - 1;
+      int const max_dim = std::max(nRows, nCols);
+      int const min_dim = std::min(nRows, nCols);
+
+      int assignmentSolverID = assignmentSolverID_;
+      if((min_dim <= 2 and max_dim <= 2) or (min_dim <= 1 and max_dim <= 6))
+        assignmentSolverID = 1;
+
+      switch(assignmentSolverID) {
         case 1:
           solverExhaustive = AssignmentExhaustive<dataType>();
           assignmentSolver = &solverExhaustive;
@@ -155,9 +164,9 @@ namespace ttk {
                           std::vector<std::vector<dataType>> &costMatrix) {
       unsigned int nRows = children1.size(), nCols = children2.size();
       for(unsigned int i = 0; i < nRows; ++i) {
-        int forestTableI = children1[i] + 1;
+        int const forestTableI = children1[i] + 1;
         for(unsigned int j = 0; j < nCols; ++j) {
-          int forestTableJ = children2[j] + 1;
+          int const forestTableJ = children2[j] + 1;
           // Cost of assigning i and j
           costMatrix[i][j] = treeTable[forestTableI][forestTableJ];
           if(tree1Level_[children1[i]] != tree2Level_[children2[j]]
@@ -168,7 +177,7 @@ namespace ttk {
         costMatrix[i][nCols] = treeTable[forestTableI][0];
       }
       for(unsigned int j = 0; j < nCols; ++j) {
-        int forestTableJ = children2[j] + 1;
+        int const forestTableJ = children2[j] + 1;
         // Cost of not assigning j
         costMatrix[nRows][j] = treeTable[0][forestTableJ];
       }
@@ -187,8 +196,8 @@ namespace ttk {
         if(std::get<0>(mTuple) >= (int)children1.size()
            || std::get<1>(mTuple) >= (int)children2.size())
           continue;
-        int tableId1 = children1[std::get<0>(mTuple)] + 1;
-        int tableId2 = children2[std::get<1>(mTuple)] + 1;
+        int const tableId1 = children1[std::get<0>(mTuple)] + 1;
+        int const tableId2 = children2[std::get<1>(mTuple)] + 1;
         forestAssignment.emplace_back(tableId1, tableId2);
       }
       return cost;
@@ -234,17 +243,7 @@ namespace ttk {
       std::vector<ftm::idNode> &children1,
       std::vector<ftm::idNode> &children2) {
       if(children1.size() != 0 && children2.size() != 0) {
-        dataType forestTerm1, forestTerm2, forestTerm3;
-        std::tuple<dataType, ftm::idNode> forestCoTerm1, forestCoTerm2;
-        // Term 1
-        forestCoTerm1
-          = computeTerm1_2<dataType>(children2, i, forestTable, true);
-        forestTerm1 = forestTable[0][j] + std::get<0>(forestCoTerm1);
-
-        // Term2
-        forestCoTerm2
-          = computeTerm1_2<dataType>(children1, j, forestTable, false);
-        forestTerm2 = forestTable[i][0] + std::get<0>(forestCoTerm2);
+        dataType forestTerm3;
 
         // Term 3
         Timer t_assignment;
@@ -254,20 +253,39 @@ namespace ttk {
         if(not parallelize_)
           t_assignment_time_ += t_assignment.getElapsedTime();
 
-        // Compute table value
-        forestTable[i][j] = keepSubtree_ ? std::min(
-                              std::min(forestTerm1, forestTerm2), forestTerm3)
-                                         : forestTerm3;
-
-        // Add backtracking information
-        if(forestTable[i][j] == forestTerm3) {
+        if(not keepSubtree_) {
+          // Compute table value
+          forestTable[i][j] = forestTerm3;
+          // Add backtracking information
           forestBackTable[i][j] = forestAssignment;
-        } else if(forestTable[i][j] == forestTerm2) {
-          forestBackTable[i][j].push_back(
-            std::make_tuple(std::get<1>(forestCoTerm2), j));
         } else {
-          forestBackTable[i][j].push_back(
-            std::make_tuple(i, std::get<1>(forestCoTerm1)));
+          dataType forestTerm1, forestTerm2;
+          std::tuple<dataType, ftm::idNode> forestCoTerm1, forestCoTerm2;
+
+          // Term 1
+          forestCoTerm1
+            = computeTerm1_2<dataType>(children2, i, forestTable, true);
+          forestTerm1 = forestTable[0][j] + std::get<0>(forestCoTerm1);
+
+          // Term2
+          forestCoTerm2
+            = computeTerm1_2<dataType>(children1, j, forestTable, false);
+          forestTerm2 = forestTable[i][0] + std::get<0>(forestCoTerm2);
+
+          // Compute table value
+          forestTable[i][j]
+            = std::min(std::min(forestTerm1, forestTerm2), forestTerm3);
+
+          // Add backtracking information
+          if(forestTable[i][j] == forestTerm3) {
+            forestBackTable[i][j] = forestAssignment;
+          } else if(forestTable[i][j] == forestTerm2) {
+            forestBackTable[i][j].push_back(
+              std::make_tuple(std::get<1>(forestCoTerm2), j));
+          } else {
+            forestBackTable[i][j].push_back(
+              std::make_tuple(i, std::get<1>(forestCoTerm1)));
+          }
         }
       } else {
         // If one of the forest is empty we get back to equation 8 or 10
@@ -280,7 +298,7 @@ namespace ttk {
     // Edit Distance Dynamic Programming Equations
     // ------------------------------------------------------------------------
     template <class dataType>
-    void computeForestToEmpyDistance(
+    void computeForestToEmptyDistance(
       ftm::FTMTree_MT *tree1,
       ftm::idNode nodeI,
       int i,
@@ -289,7 +307,7 @@ namespace ttk {
       std::vector<ftm::idNode> children;
       tree1->getChildren(nodeI, children);
       forestTable[i][0] = 0;
-      for(ftm::idNode child : children)
+      for(ftm::idNode const child : children)
         forestTable[i][0] += treeTable[child + 1][0];
     }
 
@@ -313,7 +331,7 @@ namespace ttk {
       std::vector<ftm::idNode> children;
       tree2->getChildren(nodeJ, children);
       forestTable[0][j] = 0;
-      for(ftm::idNode child : children)
+      for(ftm::idNode const child : children)
         forestTable[0][j] += treeTable[0][child + 1];
     }
 
@@ -367,32 +385,40 @@ namespace ttk {
       std::vector<std::vector<std::tuple<int, int>>> &treeBackTable,
       std::vector<ftm::idNode> &children1,
       std::vector<ftm::idNode> &children2) {
-      dataType treeTerm1, treeTerm2, treeTerm3;
-      std::tuple<dataType, ftm::idNode> treeCoTerm1, treeCoTerm2;
-      // Term 1
-      treeCoTerm1 = computeTerm1_2<dataType>(children2, i, treeTable, true);
-      treeTerm1 = treeTable[0][j] + std::get<0>(treeCoTerm1);
-
-      // Term 2
-      treeCoTerm2 = computeTerm1_2<dataType>(children1, j, treeTable, false);
-      treeTerm2 = treeTable[i][0] + std::get<0>(treeCoTerm2);
+      dataType treeTerm3;
 
       // Term 3
       treeTerm3
         = forestTable[i][j] + relabelCost<dataType>(tree1, nodeI, tree2, nodeJ);
 
-      // Compute table value
-      treeTable[i][j] = keepSubtree_
-                          ? std::min(std::min(treeTerm1, treeTerm2), treeTerm3)
-                          : treeTerm3;
-
-      // Add backtracking information
-      if(treeTable[i][j] == treeTerm3) {
+      if(not keepSubtree_) {
+        // Compute table value
+        treeTable[i][j] = treeTerm3;
+        // Add backtracking information
         treeBackTable[i][j] = std::make_tuple(i, j);
-      } else if(treeTable[i][j] == treeTerm2) {
-        treeBackTable[i][j] = std::make_tuple(std::get<1>(treeCoTerm2), j);
       } else {
-        treeBackTable[i][j] = std::make_tuple(i, std::get<1>(treeCoTerm1));
+        dataType treeTerm1, treeTerm2;
+        std::tuple<dataType, ftm::idNode> treeCoTerm1, treeCoTerm2;
+
+        // Term 1
+        treeCoTerm1 = computeTerm1_2<dataType>(children2, i, treeTable, true);
+        treeTerm1 = treeTable[0][j] + std::get<0>(treeCoTerm1);
+
+        // Term 2
+        treeCoTerm2 = computeTerm1_2<dataType>(children1, j, treeTable, false);
+        treeTerm2 = treeTable[i][0] + std::get<0>(treeCoTerm2);
+
+        // Compute table value
+        treeTable[i][j] = std::min(std::min(treeTerm1, treeTerm2), treeTerm3);
+
+        // Add backtracking information
+        if(treeTable[i][j] == treeTerm3) {
+          treeBackTable[i][j] = std::make_tuple(i, j);
+        } else if(treeTable[i][j] == treeTerm2) {
+          treeBackTable[i][j] = std::make_tuple(std::get<1>(treeCoTerm2), j);
+        } else {
+          treeBackTable[i][j] = std::make_tuple(i, std::get<1>(treeCoTerm1));
+        }
       }
     }
 
@@ -411,23 +437,23 @@ namespace ttk {
       int startC) {
       outputMatching.clear();
       std::queue<std::tuple<int, int, bool>> backQueue;
-      backQueue.emplace(std::make_tuple(startR, startC, true));
+      backQueue.emplace(startR, startC, true);
       while(!backQueue.empty()) {
         std::tuple<int, int, bool> elem = backQueue.front();
         backQueue.pop();
         bool useTreeTable = std::get<2>(elem);
-        int i = std::get<0>(elem);
-        int j = std::get<1>(elem);
+        int const i = std::get<0>(elem);
+        int const j = std::get<1>(elem);
 
         if(useTreeTable) {
-          int tupleI = std::get<0>(treeBackTable[i][j]);
-          int tupleJ = std::get<1>(treeBackTable[i][j]);
+          int const tupleI = std::get<0>(treeBackTable[i][j]);
+          int const tupleJ = std::get<1>(treeBackTable[i][j]);
           if(tupleI != 0 && tupleJ != 0) {
             useTreeTable = (tupleI != i || tupleJ != j);
-            backQueue.emplace(std::make_tuple(tupleI, tupleJ, useTreeTable));
+            backQueue.emplace(tupleI, tupleJ, useTreeTable);
             if(not useTreeTable) { // We have matched i and j
-              ftm::idNode tree1Node = tupleI - 1;
-              ftm::idNode tree2Node = tupleJ - 1;
+              ftm::idNode const tree1Node = tupleI - 1;
+              ftm::idNode const tree2Node = tupleJ - 1;
               double cost = 0;
               dataType costT
                 = relabelCost<dataType>(tree1, tree1Node, tree2, tree2Node);
@@ -437,11 +463,11 @@ namespace ttk {
           }
         } else {
           for(std::tuple<int, int> forestBackElem : forestBackTable[i][j]) {
-            int tupleI = std::get<0>(forestBackElem);
-            int tupleJ = std::get<1>(forestBackElem);
+            int const tupleI = std::get<0>(forestBackElem);
+            int const tupleJ = std::get<1>(forestBackElem);
             if(tupleI != 0 && tupleJ != 0) {
               useTreeTable = (tupleI != i && tupleJ != j);
-              backQueue.emplace(std::make_tuple(tupleI, tupleJ, useTreeTable));
+              backQueue.emplace(tupleI, tupleJ, useTreeTable);
             }
           }
         }
@@ -458,10 +484,10 @@ namespace ttk {
                       std::vector<std::tuple<ftm::idNode, ftm::idNode, double>>
                         &outputMatching) {
       // ---------------------
-      // ----- Init dynamic progamming tables
+      // ----- Init dynamic programming tables
       // --------------------
-      size_t nRows = tree1->getNumberOfNodes() + 1;
-      size_t nCols = tree2->getNumberOfNodes() + 1;
+      size_t const nRows = tree1->getNumberOfNodes() + 1;
+      size_t const nCols = tree2->getNumberOfNodes() + 1;
       std::vector<std::vector<dataType>> treeTable(
         nRows, std::vector<dataType>(nCols));
       std::vector<std::vector<dataType>> forestTable(
@@ -474,8 +500,8 @@ namespace ttk {
         forestBackTable(
           nRows, std::vector<std::vector<std::tuple<int, int>>>(nCols));
 
-      int indR = tree1->getRoot() + 1;
-      int indC = tree2->getRoot() + 1;
+      int const indR = tree1->getRoot() + 1;
+      int const indC = tree2->getRoot() + 1;
 
       tree1->getAllNodeLevel(tree1Level_);
       tree2->getAllNodeLevel(tree2Level_);
@@ -484,15 +510,8 @@ namespace ttk {
       // ---------------------
       // ----- Compute edit distance
       // --------------------
-      if(progressiveComputation_) {
-        /*MergeTreeDistanceProgressive<dataType> editDistanceProgressive;
-        editDistanceProgressive.computeEditDistanceProgressive(tree1, tree2,
-                            treeTable, forestTable, treeBackTable,
-        forestBackTable);*/
-      } else {
-        computeEditDistance(tree1, tree2, treeTable, forestTable, treeBackTable,
-                            forestBackTable, nRows, nCols);
-      }
+      computeEditDistance(tree1, tree2, treeTable, forestTable, treeBackTable,
+                          forestBackTable, nRows, nCols);
       dataType distance = treeTable[indR][indC];
       if(onlyEmptyTreeDistance_)
         distance = treeTable[indR][0];
@@ -511,7 +530,7 @@ namespace ttk {
           }
         }
       }
-      if(distanceSquared_)
+      if(distanceSquaredRoot_)
         distance = std::sqrt(distance);
 
       // ---------------------
@@ -568,7 +587,7 @@ namespace ttk {
         verifyMergeTreeStructure<dataType>(tree2);
       }
       if(preprocess_) {
-        treesNodeCorr_ = std::vector<std::vector<int>>(2);
+        treesNodeCorr_.resize(2);
         preprocessingPipeline<dataType>(
           mTree1Int, epsilonTree1_, epsilon2Tree1_, epsilon3Tree1_,
           branchDecomposition_, useMinMaxPair_, cleanTree_, treesNodeCorr_[0]);
@@ -596,15 +615,17 @@ namespace ttk {
             tree1, tree2, outputMatching);
       }
 
-      // std::cout << "TIME COMP.MATC. = " << t_match_time << std::endl;
+      // std::cout << "TIME COMP.MATCH. = " << t_match_time << std::endl;
       printMsg("Total", 1, t_total.getElapsedTime(), this->threadNumber_,
                debug::LineMode::NEW, debug::Priority::INFO);
       printMsg(debug::Separator::L2);
       std::stringstream ss2;
-      ss2 << "DISTANCE²       = " << distance;
+      ss2 << "DISTANCE²       = "
+          << (distanceSquaredRoot_ ? distance * distance : distance);
       printMsg(ss2.str());
       std::stringstream ss3;
-      ss3 << "DISTANCE        = " << std::sqrt(distance);
+      ss3 << "DISTANCE        = "
+          << (distanceSquaredRoot_ ? distance : std::sqrt(distance));
       printMsg(ss3.str());
       printMsg(debug::Separator::L2);
       std::stringstream ss4;
@@ -704,9 +725,9 @@ namespace ttk {
 
       if(processTree1) {
         if(computeEmptyTree) {
-          int i = nodeI + 1;
-          // --- Forst to empty tree distance
-          computeForestToEmpyDistance(tree1, nodeI, i, treeTable, forestTable);
+          int const i = nodeI + 1;
+          // --- Forest to empty tree distance
+          computeForestToEmptyDistance(tree1, nodeI, i, treeTable, forestTable);
 
           // --- Subtree to empty tree distance
           computeSubtreeToEmptyDistance(
@@ -716,7 +737,7 @@ namespace ttk {
                               tree2->getRoot(), treeTable, forestTable,
                               treeBackTable, forestBackTable, nRows, nCols);
       } else {
-        int j = nodeJ + 1;
+        int const j = nodeJ + 1;
         if(computeEmptyTree) {
           // --- Empty tree to forest distance
           computeEmptyToForestDistance(tree2, nodeJ, j, treeTable, forestTable);
@@ -726,7 +747,7 @@ namespace ttk {
             tree2, nodeJ, j, treeTable, forestTable);
           //}else{
         } else if(keepSubtree_ or tree1Level_[nodeI] == tree2Level_[nodeJ]) {
-          int i = nodeI + 1;
+          int const i = nodeI + 1;
           std::vector<ftm::idNode> children1;
           tree1->getChildren(nodeI, children1);
           std::vector<ftm::idNode> children2;
@@ -809,20 +830,20 @@ namespace ttk {
       std::vector<std::vector<std::vector<std::tuple<int, int>>>>
         &forestBackTable,
       bool firstCall = false) {
-      ftm::idNode nodeT = -1;
+      ftm::idNode const nodeT = -1;
       ftm::FTMTree_MT *treeT = (isTree1) ? tree1 : tree2;
       std::vector<int> treeChildDone(treeT->getNumberOfNodes(), 0);
       std::vector<bool> treeNodeDone(treeT->getNumberOfNodes(), false);
       std::queue<ftm::idNode> treeQueue;
 
       if(isTree1)
-        for(ftm::idNode leaf : tree1Leaves)
+        for(ftm::idNode const leaf : tree1Leaves)
           treeQueue.emplace(leaf);
       else if(keepSubtree_)
-        for(ftm::idNode leaf : tree2Leaves)
+        for(ftm::idNode const leaf : tree2Leaves)
           treeQueue.emplace(leaf);
       else if(tree1Level_[i - 1] < (int)tree2LevelToNode_.size())
-        for(ftm::idNode node : tree2LevelToNode_[tree1Level_[i - 1]])
+        for(ftm::idNode const node : tree2LevelToNode_[tree1Level_[i - 1]])
           treeQueue.emplace(node);
 
       if(not isCalled_) // and firstCall)
@@ -860,7 +881,7 @@ namespace ttk {
       std::vector<int> &treeChildDone,
       std::vector<bool> &treeNodeDone,
       std::queue<ftm::idNode> &treeQueue) {
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp parallel num_threads(this->threadNumber_) if(firstCall)
       {
 #pragma omp single nowait
@@ -870,7 +891,7 @@ namespace ttk {
                                  tree2NodeChildSize, treeTable, forestTable,
                                  treeBackTable, forestBackTable, nodeT,
                                  treeChildDone, treeNodeDone, treeQueue);
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
       } // pragma omp parallel
 #endif
 
@@ -906,7 +927,7 @@ namespace ttk {
           treeQueue.pop();
           taskQueue.emplace(nodeT);
         }
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp task firstprivate(taskQueue, nodeT) UNTIED()         \
   shared(treeTable, forestTable, treeBackTable, forestBackTable, \
          treeChildDone, treeNodeDone) if(isTree1)
@@ -917,8 +938,8 @@ namespace ttk {
           while(!taskQueue.empty()) {
             nodeT = taskQueue.front();
             taskQueue.pop();
-            int t = nodeT + 1;
-            ftm::idNode nodeI = i - 1;
+            int const t = nodeT + 1;
+            ftm::idNode const nodeI = i - 1;
 
             if(isTree1) {
               parallelTreeDistance_v2(
@@ -928,7 +949,7 @@ namespace ttk {
               //}else{
             } else if(keepSubtree_
                       or tree1Level_[nodeI] == tree2Level_[nodeT]) {
-              int j = nodeT + 1;
+              int const j = nodeT + 1;
               std::vector<ftm::idNode> children1;
               tree1->getChildren(nodeI, children1);
               std::vector<ftm::idNode> children2;
@@ -948,17 +969,17 @@ namespace ttk {
               continue;
 
             // Manage parent
-            ftm::idNode nodeTParent = treeT->getParentSafe(nodeT);
-            int childSize = (isTree1) ? tree1NodeChildSize[nodeTParent]
-                                      : tree2NodeChildSize[nodeTParent];
+            ftm::idNode const nodeTParent = treeT->getParentSafe(nodeT);
+            int const childSize = (isTree1) ? tree1NodeChildSize[nodeTParent]
+                                            : tree2NodeChildSize[nodeTParent];
             int oldTreeChildDone;
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp atomic capture
             {
 #endif
               oldTreeChildDone = treeChildDone[nodeTParent];
               treeChildDone[nodeTParent]++;
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
             } // pragma omp atomic capture
 #endif
             if(not treeNodeDone[nodeTParent]
@@ -966,18 +987,18 @@ namespace ttk {
               // nodeT = nodeTParent;
               taskQueue.emplace(nodeTParent);
               treeNodeDone[nodeTParent] = true;
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp taskyield
 #endif
             } else
               nodeT = -1;
 
           } // while nodeI loop
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
         } // pragma omp task
 #endif
       } // while treeQueue loop
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp taskwait
 #endif
     }
@@ -994,11 +1015,11 @@ namespace ttk {
       std::vector<std::vector<std::tuple<int, int>>> &treeBackTable,
       std::vector<std::vector<std::vector<std::tuple<int, int>>>>
         &forestBackTable) {
-      ftm::idNode nodeT = -1;
+      ftm::idNode const nodeT = -1;
       std::vector<int> treeChildDone(tree->getNumberOfNodes(), 0);
       std::vector<bool> treeNodeDone(tree->getNumberOfNodes(), false);
       std::queue<ftm::idNode> treeQueue;
-      for(ftm::idNode leaf : treeLeaves)
+      for(ftm::idNode const leaf : treeLeaves)
         treeQueue.emplace(leaf);
       if(not isCalled_)
         parallelEmptyTreeDistancePara(tree, isTree1, treeLeaves,
@@ -1027,7 +1048,7 @@ namespace ttk {
       std::vector<int> &treeChildDone,
       std::vector<bool> &treeNodeDone,
       std::queue<ftm::idNode> &treeQueue) {
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp parallel num_threads(this->threadNumber_)
       {
 #pragma omp single nowait
@@ -1036,7 +1057,7 @@ namespace ttk {
                                       treeNodeChildSize, treeTable, forestTable,
                                       treeBackTable, forestBackTable, nodeT,
                                       treeChildDone, treeNodeDone, treeQueue);
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
       } // pragma omp parallel
 #endif
     }
@@ -1060,7 +1081,7 @@ namespace ttk {
         nodeT = treeQueue.front();
         treeQueue.pop();
 
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp task firstprivate(nodeT) UNTIED()                    \
   shared(treeTable, forestTable, treeBackTable, forestBackTable, \
          treeChildDone, treeNodeDone)
@@ -1068,16 +1089,16 @@ namespace ttk {
 #endif
           while((int)nodeT != -1) {
             if(isTree1) {
-              int i = nodeT + 1;
+              int const i = nodeT + 1;
               // --- Forest to empty tree distance
-              computeForestToEmpyDistance(
+              computeForestToEmptyDistance(
                 tree, nodeT, i, treeTable, forestTable);
 
               // --- Subtree to empty tree distance
               computeSubtreeToEmptyDistance(
                 tree, nodeT, i, treeTable, forestTable);
             } else {
-              int j = nodeT + 1;
+              int const j = nodeT + 1;
               // --- Empty tree to forest distance
               computeEmptyToForestDistance(
                 tree, nodeT, j, treeTable, forestTable);
@@ -1088,33 +1109,33 @@ namespace ttk {
             }
 
             // Manage parent
-            ftm::idNode nodeTParent = tree->getParentSafe(nodeT);
+            ftm::idNode const nodeTParent = tree->getParentSafe(nodeT);
             int oldTreeChildDone;
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp atomic capture
             {
 #endif
               oldTreeChildDone = treeChildDone[nodeTParent];
               treeChildDone[nodeTParent]++;
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
             } // pragma omp atomic capture
 #endif
             if(not treeNodeDone[nodeTParent]
                and oldTreeChildDone + 1 == treeNodeChildSize[nodeTParent]) {
               nodeT = nodeTParent;
               treeNodeDone[nodeTParent] = true;
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp taskyield
 #endif
             } else
               nodeT = -1;
 
           } // while nodeI loop
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
         } // pragma omp task
 #endif
       } // while treeQueue loop
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp taskwait
 #endif
 
@@ -1138,12 +1159,12 @@ namespace ttk {
     void verifyMergeTreeStructure(ftm::FTMTree_MT *tree) {
       bool problem = false;
 
-      bool isJT = tree->isJoinTree<dataType>();
+      bool const isJT = tree->isJoinTree<dataType>();
       std::vector<std::tuple<ftm::idNode, ftm::idNode>> problemNodes;
       std::queue<ftm::idNode> queue;
       queue.emplace(tree->getRoot());
       while(!queue.empty()) {
-        ftm::idNode node = queue.front();
+        ftm::idNode const node = queue.front();
         queue.pop();
 
         if(!tree->isRoot(node)) {
@@ -1191,7 +1212,7 @@ namespace ttk {
       tree2->getPersistencePairsFromTree(pairs2);
       std::vector<std::vector<dataType>> costMatrix(
         pairs1.size() + 1, std::vector<dataType>(pairs2.size() + 1));
-      std::stringstream ss;
+      std::stringstream const ss;
       ss << costMatrix.size() << " _ " << costMatrix[0].size();
       printMsg(ss.str());
       for(unsigned int i = 0; i < costMatrix.size() - 1; ++i) {

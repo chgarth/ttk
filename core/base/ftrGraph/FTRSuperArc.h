@@ -81,7 +81,7 @@ namespace ttk {
       }
 
       bool hide() {
-        bool old = visible_;
+        bool const old = visible_;
         visible_ = false;
         return old;
       }
@@ -157,7 +157,7 @@ namespace ttk {
         fromUp_ = up;
       }
 
-      bool getFromUp(void) const {
+      bool getFromUp() const {
         return fromUp_;
       }
 #endif

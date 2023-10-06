@@ -74,7 +74,7 @@ int shuffleScalarFieldValues(const T *const inputField,
   // results are platform-dependent
   ttk::shuffle(shuffledValues, random_engine);
 
-  // link original value to shuffled value correspondance
+  // link original value to shuffled value correspondence
   std::map<T, T> originalToShuffledValues{};
   for(size_t i = 0; i < inputValues.size(); ++i) {
     originalToShuffledValues[inputValues[i]] = shuffledValues[i];
@@ -128,7 +128,7 @@ int ttkIdentifierRandomizer::RequestData(vtkInformation *ttkNotUsed(request),
                  + "'...");
 
   // allocate the memory for the output scalar field
-  vtkSmartPointer<vtkDataArray> outputArray
+  vtkSmartPointer<vtkDataArray> const outputArray
     = vtkSmartPointer<vtkDataArray>::Take(inputScalarField->NewInstance());
   outputArray->SetName(inputScalarField->GetName());
   outputArray->SetNumberOfComponents(1);

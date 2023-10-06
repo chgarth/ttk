@@ -57,7 +57,7 @@ namespace ttk {
     dataType computeL2Distance(std::vector<dataType> &img1,
                                std::vector<dataType> &img2,
                                bool emptyFieldDistance = false) {
-      size_t noPoints = img1.size();
+      size_t const noPoints = img1.size();
 
       std::vector<dataType> secondField = img2;
       if(emptyFieldDistance)
@@ -78,7 +78,7 @@ namespace ttk {
                                               std::vector<dataType> &img2,
                                               double alpha) {
 
-      size_t noPoints = img1.size();
+      size_t const noPoints = img1.size();
 
       std::vector<dataType> barycenter(noPoints);
       for(size_t i = 0; i < noPoints; ++i)
@@ -99,17 +99,14 @@ namespace ttk {
       mergeTreeDistance.setEpsilon2Tree2(epsilon2Tree2_);
       mergeTreeDistance.setEpsilon3Tree1(epsilon3Tree1_);
       mergeTreeDistance.setEpsilon3Tree2(epsilon3Tree2_);
-      mergeTreeDistance.setProgressiveComputation(progressiveComputation_);
       mergeTreeDistance.setBranchDecomposition(branchDecomposition_);
       mergeTreeDistance.setParallelize(parallelize_);
       mergeTreeDistance.setPersistenceThreshold(persistenceThreshold_);
       mergeTreeDistance.setNormalizedWasserstein(normalizedWasserstein_);
-      mergeTreeDistance.setNormalizedWassersteinReg(normalizedWassersteinReg_);
-      mergeTreeDistance.setRescaledWasserstein(rescaledWasserstein_);
       mergeTreeDistance.setKeepSubtree(keepSubtree_);
       mergeTreeDistance.setUseMinMaxPair(useMinMaxPair_);
       mergeTreeDistance.setThreadNumber(this->threadNumber_);
-      mergeTreeDistance.setDistanceSquared(true); // squared root
+      mergeTreeDistance.setDistanceSquaredRoot(true); // squared root
       mergeTreeDistance.setDebugLevel(2);
       mergeTreeDistance.setPreprocess(false);
       mergeTreeDistance.setPostprocess(false);
@@ -135,14 +132,10 @@ namespace ttk {
       mergeTreeBarycenter.setEpsilon2Tree2(epsilon2Tree2_);
       mergeTreeBarycenter.setEpsilon3Tree1(epsilon3Tree1_);
       mergeTreeBarycenter.setEpsilon3Tree2(epsilon3Tree2_);
-      mergeTreeBarycenter.setProgressiveComputation(progressiveComputation_);
       mergeTreeBarycenter.setBranchDecomposition(branchDecomposition_);
       mergeTreeBarycenter.setParallelize(parallelize_);
       mergeTreeBarycenter.setPersistenceThreshold(persistenceThreshold_);
       mergeTreeBarycenter.setNormalizedWasserstein(normalizedWasserstein_);
-      mergeTreeBarycenter.setNormalizedWassersteinReg(
-        normalizedWassersteinReg_);
-      mergeTreeBarycenter.setRescaledWasserstein(rescaledWasserstein_);
       mergeTreeBarycenter.setKeepSubtree(keepSubtree_);
       mergeTreeBarycenter.setUseMinMaxPair(useMinMaxPair_);
       mergeTreeBarycenter.setThreadNumber(this->threadNumber_);
@@ -214,7 +207,7 @@ namespace ttk {
 
           // Compute barycenter
           printMsg("Compute barycenter", debug::Priority::VERBOSE);
-          double alpha = computeAlpha(index1, middleIndex, index2);
+          double const alpha = computeAlpha(index1, middleIndex, index2);
           ftm::MergeTree<dataType> barycenter;
           std::vector<dataType> barycenterL2;
           if(not useL2Distance_)
@@ -243,13 +236,13 @@ namespace ttk {
           std::vector<std::tuple<std::vector<dataType>, int>>
             barycentersL2OnPath;
           for(unsigned int i = 0; i < 2; ++i) {
-            int toReach = (i == 0 ? index1 : index2);
-            int offset = (i == 0 ? -1 : 1);
+            int const toReach = (i == 0 ? index1 : index2);
+            int const offset = (i == 0 ? -1 : 1);
             int tIndex = middleIndex + offset;
             while(tIndex != toReach) {
 
               // Compute barycenter
-              double alphaT = computeAlpha(index1, tIndex, index2);
+              double const alphaT = computeAlpha(index1, tIndex, index2);
               ftm::MergeTree<dataType> barycenterP;
               std::vector<dataType> barycenterPL2;
               if(not useL2Distance_)
@@ -362,7 +355,7 @@ namespace ttk {
         }
 
       // --- Compute empty tree distances
-      unsigned int distMatSize
+      unsigned int const distMatSize
         = (not useL2Distance_ ? allMT.size() : images.size());
       for(unsigned int i = 0; i < distMatSize; ++i) {
         dataType distance;

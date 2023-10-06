@@ -1,5 +1,4 @@
-#include <ttkFTMTreeUtils.h>
-#include <ttkMacros.h>
+#include <ttkMergeAndContourTreeUtils.h>
 #include <ttkMergeTreeDistanceMatrix.h>
 #include <ttkUtils.h>
 
@@ -103,8 +102,15 @@ int ttkMergeTreeDistanceMatrix::run(
   // Construct trees
   const int numInputs = inputTrees.size();
   std::vector<MergeTree<dataType>> intermediateTrees, intermediateTrees2;
-  constructTrees(inputTrees, intermediateTrees);
-  constructTrees(inputTrees2, intermediateTrees2);
+  bool const useSadMaxPairs = (mixtureCoefficient_ == 0); // only for PD support
+  isPersistenceDiagram_
+    = constructTrees(inputTrees, intermediateTrees, useSadMaxPairs);
+  if(not isPersistenceDiagram_
+     or (mixtureCoefficient_ != 0 and mixtureCoefficient_ != 1)) {
+    auto &inputTrees2ToUse
+      = (not isPersistenceDiagram_ ? inputTrees2 : inputTrees);
+    constructTrees(inputTrees2ToUse, intermediateTrees2, !useSadMaxPairs);
+  }
 
   // Verify parameters
   if(not UseFieldDataParameters) {
@@ -112,29 +118,80 @@ int ttkMergeTreeDistanceMatrix::run(
       branchDecomposition_ = true;
       normalizedWasserstein_ = true;
       keepSubtree_ = false;
+      baseModule_ = 0;
     } else if(Backend == 1) {
       branchDecomposition_ = false;
       normalizedWasserstein_ = false;
       keepSubtree_ = true;
+      baseModule_ = 0;
+    } else if(Backend == 3) {
+      branchDecomposition_ = true;
+      normalizedWasserstein_ = false;
+      keepSubtree_ = true;
+      baseModule_ = 1;
+    } else if(Backend == 4) {
+      branchDecomposition_ = true;
+      normalizedWasserstein_ = false;
+      keepSubtree_ = true;
+      baseModule_ = 2;
+    } else {
+      baseModule_ = 0;
     }
   }
-  if(not branchDecomposition_) {
+  if(baseModule_ == 0) {
+    if(isPersistenceDiagram_) {
+      branchDecomposition_ = true;
+    }
+    if(not branchDecomposition_) {
+      if(normalizedWasserstein_)
+        printMsg("NormalizedWasserstein is set to false since branch "
+                 "decomposition is not asked.");
+      normalizedWasserstein_ = false;
+    }
     if(normalizedWasserstein_)
-      printMsg("NormalizedWasserstein is set to false since branch "
-               "decomposition is not asked.");
-    normalizedWasserstein_ = false;
+      printMsg("Computation with normalized Wasserstein.");
+    else
+      printMsg("Computation without normalized Wasserstein.");
+    epsilonTree2_ = epsilonTree1_;
+    epsilon2Tree2_ = epsilon2Tree1_;
+    epsilon3Tree2_ = epsilon3Tree1_;
+    printMsg("BranchDecomposition: " + std::to_string(branchDecomposition_));
+    printMsg("NormalizedWasserstein: "
+             + std::to_string(normalizedWasserstein_));
+    printMsg("KeepSubtree: " + std::to_string(keepSubtree_));
   }
-  epsilonTree2_ = epsilonTree1_;
-  epsilon2Tree2_ = epsilon2Tree1_;
-  epsilon3Tree2_ = epsilon3Tree1_;
-  printMsg("BranchDecomposition: " + std::to_string(branchDecomposition_));
-  printMsg("NormalizedWasserstein: " + std::to_string(normalizedWasserstein_));
-  printMsg("KeepSubtree: " + std::to_string(keepSubtree_));
+  if(baseModule_ == 1) {
+    printMsg("Using Branch Mapping Distance.");
+    std::string metric;
+    if(branchMetric_ == 0)
+      metric = "Wasserstein Distance first degree";
+    else if(branchMetric_ == 1)
+      metric = "Wasserstein Distance second degree";
+    else if(branchMetric_ == 2)
+      metric = "Persistence difference";
+    else if(branchMetric_ == 3)
+      metric = "Shifting cost";
+    else
+      return 1;
+    printMsg("BranchMetric: " + metric);
+  }
+  if(baseModule_ == 2) {
+    printMsg("Using Path Mapping Distance.");
+    std::string metric;
+    if(pathMetric_ == 0)
+      metric = "Persistence difference";
+    else
+      return 1;
+    printMsg("PathMetric: " + metric);
+  }
 
   // --- Call base
   std::vector<std::vector<double>> treesDistMat(
     numInputs, std::vector<double>(numInputs));
-  execute<dataType>(intermediateTrees, intermediateTrees2, treesDistMat);
+  if(baseModule_ == 0)
+    execute<dataType>(intermediateTrees, intermediateTrees2, treesDistMat);
+  else
+    execute<dataType>(intermediateTrees, treesDistMat);
 
   // --- Create output
   auto treesDistTable = vtkTable::GetData(outputVector);
@@ -142,9 +199,9 @@ int ttkMergeTreeDistanceMatrix::run(
   // zero-padd column name to keep Row Data columns ordered
   const auto zeroPad
     = [](std::string &colName, const size_t numberCols, const size_t colIdx) {
-        std::string max{std::to_string(numberCols - 1)};
-        std::string cur{std::to_string(colIdx)};
-        std::string zer(max.size() - cur.size(), '0');
+        std::string const max{std::to_string(numberCols - 1)};
+        std::string const cur{std::to_string(colIdx)};
+        std::string const zer(max.size() - cur.size(), '0');
         colName.append(zer).append(cur);
       };
 
@@ -227,16 +284,6 @@ int ttkMergeTreeDistanceMatrix::RequestData(
   loadBlocks(inputTrees, blocks);
   loadBlocks(inputTrees2, blocks2);
 
-  auto arrayToGet
-    = vtkUnstructuredGrid::SafeDownCast(inputTrees[0]->GetBlock(0))
-        ->GetPointData()
-        ->GetArray("Scalar");
-  if(arrayToGet == nullptr)
-    arrayToGet = vtkUnstructuredGrid::SafeDownCast(inputTrees[0]->GetBlock(0))
-                   ->GetPointData()
-                   ->GetArray("Birth");
-  int dataTypeInt = arrayToGet->GetDataType();
-
   // --- Load field data parameters
   if(UseFieldDataParameters) {
     printMsg("Load parameters from field data.");
@@ -245,7 +292,7 @@ int ttkMergeTreeDistanceMatrix::RequestData(
     for(auto paramName : paramNames) {
       auto array = blocks->GetFieldData()->GetArray(paramName.c_str());
       if(array) {
-        double value = array->GetTuple1(0);
+        double const value = array->GetTuple1(0);
         setParamValueFromName(paramName, value);
         printMsg(" - " + paramName + " = " + std::to_string(value));
       } else
@@ -253,10 +300,5 @@ int ttkMergeTreeDistanceMatrix::RequestData(
     }
   }
 
-  int res = 0;
-  switch(dataTypeInt) {
-    vtkTemplateMacro(res = run<VTK_TT>(outputVector, inputTrees, inputTrees2));
-  }
-
-  return res;
+  return run<float>(outputVector, inputTrees, inputTrees2);
 }

@@ -19,7 +19,6 @@ ttkEndFor::ttkEndFor() {
 }
 
 ttkEndFor::~ttkEndFor() = default;
-;
 
 int ttkEndFor::FillInputPortInformation(int port, vtkInformation *info) {
   if(port == 0 || port == 1) {
@@ -37,7 +36,7 @@ int ttkEndFor::FillOutputPortInformation(int port, vtkInformation *info) {
   return 0;
 }
 
-int removeFieldDataRecursively(vtkDataObject *object) {
+static int removeFieldDataRecursively(vtkDataObject *object) {
   object->GetFieldData()->RemoveArray("_ttk_IterationInfo");
   if(object->IsA("vtkMultiBlockDataSet")) {
     auto objectAsMB = static_cast<vtkMultiBlockDataSet *>(object);
@@ -67,10 +66,10 @@ int ttkEndFor::RequestData(vtkInformation *request,
   }
 
   // get iteration info
-  int i = forEach->GetIterationIdx() - 1;
-  int n = forEach->GetIterationNumber();
+  int const i = forEach->GetIterationIdx() - 1;
+  int const n = forEach->GetIterationNumber();
 
-  bool isRepeatedIteration = this->LastIterationIdx == i && i > 0;
+  bool const isRepeatedIteration = this->LastIterationIdx == i && i > 0;
   this->LastIterationIdx = i;
 
   if(isRepeatedIteration)

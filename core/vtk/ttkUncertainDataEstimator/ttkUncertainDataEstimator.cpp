@@ -48,11 +48,11 @@ int ttkUncertainDataEstimator::RequestData(vtkInformation *ttkNotUsed(request),
   auto mean = vtkDataSet::GetData(outputVector, 2);
 
   // Number of input files
-  int numInputs = inputVector[0]->GetNumberOfInformationObjects();
+  int const numInputs = inputVector[0]->GetNumberOfInformationObjects();
   this->printMsg(std::vector<std::vector<std::string>>{
     {"#Inputs", std::to_string(numInputs)}});
 
-  // Get input datas
+  // Get input data
   std::vector<vtkDataSet *> input(numInputs);
   for(int i = 0; i < numInputs; i++) {
     input[i] = vtkDataSet::GetData(inputVector[0], i);
@@ -66,7 +66,7 @@ int ttkUncertainDataEstimator::RequestData(vtkInformation *ttkNotUsed(request),
   int numFields = 0;
   int numArrays = 0;
 
-  // Get arrays from input datas
+  // Get arrays from input data
   std::vector<vtkDataArray *> inputScalarField;
 
   for(int i = 0; i < numInputs; i++) {
@@ -98,9 +98,9 @@ int ttkUncertainDataEstimator::RequestData(vtkInformation *ttkNotUsed(request),
       return -1;
   }
   // Allocate the memory for the output bound scalar fields
-  vtkSmartPointer<vtkDataArray> outputLowerBoundScalarField{
+  vtkSmartPointer<vtkDataArray> const outputLowerBoundScalarField{
     inputScalarField[0]->NewInstance()};
-  vtkSmartPointer<vtkDataArray> outputUpperBoundScalarField{
+  vtkSmartPointer<vtkDataArray> const outputUpperBoundScalarField{
     inputScalarField[0]->NewInstance()};
   outputLowerBoundScalarField->SetName("lowerBoundField");
   outputUpperBoundScalarField->SetName("upperBoundField");

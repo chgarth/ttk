@@ -5,7 +5,7 @@
 #include "FTRGraph_Template.h"
 #include "FTRTasks.h"
 
-// c++ incldues
+// c++ includes
 #include <unordered_map>
 
 // trick to print a full line in an atomic operation, avoid mixed up redulsts in
@@ -226,7 +226,7 @@ void ttk::ftr::FTRGraph<ScalarType, triangulationType>::growthFromSeed(
     localGrowth(localProp, star.upper);
   } // end propagation while
 
-  // get the corresponging critical point on which
+  // get the corresponding critical point on which
   // the propagation has stopped (join, split, max)
   const idVertex upVert = localProp->getCurVertex();
 
@@ -253,17 +253,17 @@ void ttk::ftr::FTRGraph<ScalarType, triangulationType>::growthFromSeed(
 
   PRINT(upVert << " active " << localProp->getNbArcs());
 
-  // reached node id and wether it has been created by this task or already
+  // reached node id and whether it has been created by this task or already
   // existed
   idNode saddleNode;
   idSuperArc joinParentArc{};
   bool hideFromHere = false; // if true, new arc are hidden to stop propagation.
 
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp critical
 #endif
   {
-    bool alreadyNode = graph_.isNode(upVert);
+    bool const alreadyNode = graph_.isNode(upVert);
     hideFromHere = alreadyNode;
     if(isJoin) {
       PRINT(upVert << " join " << isJoinLast << " h " << hideFromHere);
@@ -288,7 +288,8 @@ void ttk::ftr::FTRGraph<ScalarType, triangulationType>::growthFromSeed(
       comp.lower = lowerComps(star.lower, localProp);
     }
     saddleNode = graph_.getNodeId(upVert);
-    idSuperArc visibleMerged = mergeAtSaddle(saddleNode, localProp, comp.lower);
+    idSuperArc const visibleMerged
+      = mergeAtSaddle(saddleNode, localProp, comp.lower);
     localProp->lessArc(visibleMerged - 1);
 
     localGrowth(localProp, star.upper);
@@ -357,14 +358,14 @@ void ttk::ftr::FTRGraph<ScalarType, triangulationType>::growthFromSeed(
 
   // starting from the saddle
   if(isSplit && (!isJoin || isJoinLast)) {
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp task OPTIONAL_PRIORITY(PriorityLevel::Low)
 #endif
     growthFromSeed(upVert, localProp);
 
   } else if(isJoinLast) {
 
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp task OPTIONAL_PRIORITY(PriorityLevel::Average)
 #endif
     growthFromSeed(upVert, localProp, joinParentArc);
@@ -412,8 +413,8 @@ void ttk::ftr::FTRGraph<ScalarType, triangulationType>::growthSequential(
 #ifndef TTK_DISABLE_FTR_LAZY
     if(valences_.lower[curVert] < 2 && valences_.upper[curVert] < 2) {
 
-      // simple reeb regular, lazyness
-      if(star.lower.size()) {
+      // simple reeb regular, laziness
+      if(!star.lower.empty()) {
         // not a min nor a saddle: 1 CC below (need findSubtree)
         currentArc = dynGraph(localProp).getSubtreeArc(star.lower[0]);
         if(valences_.upper[curVert] && valences_.lower[curVert]) {
@@ -637,7 +638,8 @@ void ttk::ftr::FTRGraph<ScalarType, triangulationType>::updatePreimage(
     mesh_.getVertexTriangle(localProp->getCurVertex(), t, curTriangleid);
 
     mesh_.getOrderedTriangle(curTriangleid, localProp->goUp(), oTriangle);
-    vertPosInTriangle curVertPos = getVertPosInTriangle(oTriangle, localProp);
+    vertPosInTriangle const curVertPos
+      = getVertPosInTriangle(oTriangle, localProp);
 
     // Update DynGraph
     // We can have an end pos on an unvisited triangle
@@ -682,7 +684,7 @@ void ttk::ftr::FTRGraph<ScalarType, triangulationType>::
                            const Propagation *const localProp,
                            const idSuperArc curArc) {
   // Check if exist ?
-  // If not, the triangle will be visited again once a merge have occured.
+  // If not, the triangle will be visited again once a merge have occurred.
   // So we do not add the edge now
   dynGraph(localProp).removeEdge(
     std::get<0>(oTriangle), std::get<1>(oTriangle));
@@ -746,7 +748,8 @@ void ttk::ftr::FTRGraph<ScalarType, triangulationType>::lazyUpdatePreimage(
     mesh_.getVertexTriangle(localProp->getCurVertex(), t, curTriangleid);
 
     mesh_.getOrderedTriangle(curTriangleid, localProp->goUp(), oTriangle);
-    vertPosInTriangle curVertPos = getVertPosInTriangle(oTriangle, localProp);
+    vertPosInTriangle const curVertPos
+      = getVertPosInTriangle(oTriangle, localProp);
 
     // Update DynGraph
     // We can have an end pos on an unvisited triangle
@@ -878,7 +881,7 @@ bool ttk::ftr::FTRGraph<ScalarType, triangulationType>::checkLast(
   // Using propagation id allows to decrement by the number of time this
   // propagation has reached the saddle, even if the propagation take care
   // of several of these arcs (after a Hole-split).
-  for(idEdge edgeId : starVect) {
+  for(idEdge const edgeId : starVect) {
     const idSuperArc edgeArc = dynGraph(localProp).getSubtreeArc(edgeId);
     if(edgeArc == nullSuperArc) {
       continue;
@@ -899,7 +902,7 @@ bool ttk::ftr::FTRGraph<ScalarType, triangulationType>::checkLast(
   if(localProp->goUp()) {
     // for gcc 4.8 and old openMP
     valence *const vd = &graph_.valDown_[curSaddle];
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp atomic capture
 #endif
     {
@@ -909,7 +912,7 @@ bool ttk::ftr::FTRGraph<ScalarType, triangulationType>::checkLast(
 
   } else {
     valence *const vu = &graph_.valUp_[curSaddle];
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp atomic capture
 #endif
     {
@@ -920,11 +923,11 @@ bool ttk::ftr::FTRGraph<ScalarType, triangulationType>::checkLast(
 
   if(oldVal == -1) {
     // First task to touch this saddle, compute the valence
-    idVertex totalVal = starVect.size();
+    idVertex const totalVal = starVect.size();
     valence newVal = 0;
     if(localProp->goUp()) {
       valence *const vd = &graph_.valDown_[curSaddle];
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp atomic capture
 #endif
       {
@@ -934,7 +937,7 @@ bool ttk::ftr::FTRGraph<ScalarType, triangulationType>::checkLast(
 
     } else {
       valence *const vu = &graph_.valUp_[curSaddle];
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp atomic capture
 #endif
       {
@@ -1035,7 +1038,7 @@ ttk::ftr::idSuperArc ttk::ftr::FTRGraph<ScalarType, triangulationType>::visit(
     propagations_.visit(curVert, localProp);
     opposite = propagations_.visitOpposite(curVert, localProp);
     bool done;
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp atomic read seq_cst
 #endif
     done = opposite.done;

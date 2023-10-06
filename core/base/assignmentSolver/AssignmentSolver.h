@@ -2,7 +2,7 @@
 /// \class ttk::AssignmentSolver
 /// \author Mathieu Pont (mathieu.pont@lip6.fr)
 ///
-/// Assignement Problem Solver abstract class
+/// Assignment Problem Solver abstract class
 ///
 /// For the unbalanced problem:
 ///   The cost matrix in input has a size of (n + 1) x (m + 1)
@@ -65,7 +65,7 @@ namespace ttk {
 
     void printTableVector(std::vector<std::vector<dataType>> &table) {
       for(auto vecTemp : table) {
-        std::stringstream ss;
+        const std::stringstream ss;
         for(auto valTemp : vecTemp) {
           ss << valTemp << " ";
         }

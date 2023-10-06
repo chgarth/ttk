@@ -55,7 +55,7 @@ int ttkDepthImageBasedGeometryApproximation::RequestData(
   auto outputMBD = vtkMultiBlockDataSet::GetData(outputVector);
 
   // Process each depth image individually
-  size_t nBlocks = inputMBD->GetNumberOfBlocks();
+  size_t const nBlocks = inputMBD->GetNumberOfBlocks();
   for(size_t i = 0; i < nBlocks; i++) {
     // Get vtkImageData
     auto inputImage = vtkImageData::SafeDownCast(inputMBD->GetBlock(i));
@@ -67,7 +67,7 @@ int ttkDepthImageBasedGeometryApproximation::RequestData(
     // Get depth array
     auto depthArray = this->GetInputArrayToProcess(0, inputImage);
 
-    // Get camera paramters from field data
+    // Get camera parameters from field data
     auto inputFD = inputImage->GetFieldData();
 
     auto camHeight

@@ -18,10 +18,13 @@
 ///   - <a
 ///   href="https://topology-tool-kit.github.io/examples/mergeTreeClustering/">Merge
 ///   Tree Clustering example</a> \n
+///   - <a
+///   href="https://topology-tool-kit.github.io/examples/mergeTreePGA/">Merge
+///   Tree Principal Geodesic Analysis example</a> \n
 
 #define treesMatchingVector \
   std::vector<std::vector<std::tuple<ftm::idNode, ftm::idNode, double>>>
-#define matchingVector std::vector<treesMatchingVector>
+#define matchingVectorType std::vector<treesMatchingVector>
 
 #pragma once
 
@@ -97,7 +100,7 @@ namespace ttk {
       std::vector<ftm::FTMTree_MT *> &trees,
       std::vector<ftm::FTMTree_MT *> &trees2,
       std::vector<std::vector<ftm::MergeTree<dataType>>> &allCentroids) {
-      allCentroids = std::vector<std::vector<ftm::MergeTree<dataType>>>(
+      allCentroids.resize(
         2, std::vector<ftm::MergeTree<dataType>>(noCentroids_));
       std::vector<dataType> distances(
         trees.size(), std::numeric_limits<dataType>::max());
@@ -160,7 +163,7 @@ namespace ttk {
 
         if(i == noCentroids_ - 1)
           continue;
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP44
 #pragma omp parallel for schedule(dynamic) shared(allCentroids) \
   num_threads(this->threadNumber_) if(parallelize_)
 #endif
@@ -194,7 +197,7 @@ namespace ttk {
       for(unsigned int i = 0; i < bestDistance_.size(); ++i)
         distancesAndIndexes[i] = std::make_tuple(-bestDistance_[i], i);
       std::sort(distancesAndIndexes.begin(), distancesAndIndexes.end());
-      int bestIndex = std::get<1>(distancesAndIndexes[noNewCentroid]);
+      int const bestIndex = std::get<1>(distancesAndIndexes[noNewCentroid]);
       centroid = ftm::copyMergeTree<dataType>(trees[bestIndex], true);
       limitSizeBarycenter(centroid, trees);
       ftm::cleanMergeTree<dataType>(centroid);
@@ -205,15 +208,19 @@ namespace ttk {
       std::vector<ftm::FTMTree_MT *> &trees,
       std::vector<ftm::MergeTree<dataType>> &centroids,
       std::vector<ftm::FTMTree_MT *> &ttkNotUsed(trees2)) {
-      lowerBound_ = std::vector<std::vector<double>>(
+      lowerBound_.clear();
+      lowerBound_.resize(
         trees.size(), std::vector<double>(centroids.size(), 0));
-      upperBound_
-        = std::vector<double>(trees.size(), std::numeric_limits<double>::max());
-      bestCentroid_ = std::vector<int>(trees.size(), -1);
-      oldBestCentroid_ = std::vector<int>(trees.size(), -1);
-      bestDistance_
-        = std::vector<double>(trees.size(), std::numeric_limits<double>::max());
-      recompute_ = std::vector<bool>(trees.size(), true);
+      upperBound_.clear();
+      upperBound_.resize(trees.size(), std::numeric_limits<double>::max());
+      bestCentroid_.clear();
+      bestCentroid_.resize(trees.size(), -1);
+      oldBestCentroid_.clear();
+      oldBestCentroid_.resize(trees.size(), -1);
+      bestDistance_.clear();
+      bestDistance_.resize(trees.size(), std::numeric_limits<double>::max());
+      recompute_.clear();
+      recompute_.resize(trees.size(), true);
     }
 
     template <class dataType>
@@ -245,7 +252,7 @@ namespace ttk {
     }
 
     // ------------------------------------------------------------------------
-    // Assignement
+    // Assignment
     // ------------------------------------------------------------------------
     template <class dataType>
     void assignmentCentroidsAccelerated(
@@ -261,7 +268,7 @@ namespace ttk {
         // Compute distance between old and new corresponding centroids
         std::vector<dataType> distanceShift(centroids.size()),
           distanceShift2(centroids2.size());
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp parallel for schedule(dynamic)                     \
   shared(centroids, centroids2, oldCentroids_, oldCentroids2_) \
     num_threads(this->threadNumber_) if(parallelize_)
@@ -318,7 +325,7 @@ namespace ttk {
         identified[i] = (upperBound_[i] <= centroidScore[bestCentroid_[i]]);
 
         // Step 3
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp parallel for schedule(dynamic) shared(centroids, centroids2) \
   num_threads(this->threadNumber_) if(parallelize_)
 #endif
@@ -395,24 +402,20 @@ namespace ttk {
                           std::vector<ftm::FTMTree_MT *> &trees2,
                           std::vector<ftm::MergeTree<dataType>> &centroids2) {
       oldBestCentroid_ = bestCentroid_;
-      if(normalizedWasserstein_ and rescaledWasserstein_)
-        assignmentCentroidsNaive<dataType>(
-          trees, centroids, assignmentC, bestDistanceT, trees2, centroids2);
-      else
-        assignmentCentroidsAccelerated<dataType>(
-          trees, centroids, assignmentC, bestDistanceT, trees2, centroids2);
+      assignmentCentroidsAccelerated<dataType>(
+        trees, centroids, assignmentC, bestDistanceT, trees2, centroids2);
     }
 
     template <class dataType>
     void finalAssignmentCentroids(
       std::vector<ftm::FTMTree_MT *> &trees,
       std::vector<ftm::MergeTree<dataType>> &centroids,
-      matchingVector &matchingsC,
+      matchingVectorType &matchingsC,
       std::vector<std::tuple<int, int>> &assignmentC,
       std::vector<dataType> &bestDistanceT,
       std::vector<ftm::FTMTree_MT *> &trees2,
       std::vector<ftm::MergeTree<dataType>> &centroids2,
-      matchingVector &matchingsC2) {
+      matchingVectorType &matchingsC2) {
       int noC = centroids.size();
       std::vector<std::vector<ftm::FTMTree_MT *>> assignedTrees(noC),
         assignedTrees2(noC);
@@ -426,7 +429,7 @@ namespace ttk {
             trees2[std::get<1>(asgn)]);
       }
 
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp parallel for schedule(dynamic) shared(centroids, centroids2) \
   num_threads(this->threadNumber_) if(parallelize_)
 #endif
@@ -445,7 +448,7 @@ namespace ttk {
             distances[j] = mixDistances<dataType>(distances[j], distances2[j]);
         }
         for(unsigned int j = 0; j < assignedTreesIndex[i].size(); ++j) {
-          int index = assignedTreesIndex[i][j];
+          int const index = assignedTreesIndex[i][j];
           bestDistanceT[index] = distances[j];
         }
       }
@@ -461,7 +464,7 @@ namespace ttk {
       std::vector<ftm::MergeTree<dataType>> &centroids2) {
       std::vector<int> bestCentroidT(trees.size(), -1);
 
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp parallel for schedule(dynamic) shared(centroids, centroids2) \
   num_threads(this->threadNumber_) if(parallelize_)
 #endif
@@ -507,7 +510,7 @@ namespace ttk {
     void matchingCorrespondence(treesMatchingVector &matchingT,
                                 std::vector<int> &nodeCorr,
                                 std::vector<int> &assignedTreesIndex) {
-      for(int i : assignedTreesIndex) {
+      for(int const i : assignedTreesIndex) {
         std::vector<std::tuple<ftm::idNode, ftm::idNode, double>> newMatching;
         for(auto tup : matchingT[i])
           newMatching.emplace_back(
@@ -552,7 +555,7 @@ namespace ttk {
           ++cpt;
         }
 
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp parallel num_threads(this->threadNumber_) \
   shared(centroids) if(parallelize_ and parallelizeUpdate_)
       {
@@ -560,7 +563,7 @@ namespace ttk {
         {
 #endif
           for(unsigned int i = 0; i < centroids.size(); ++i) {
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp task firstprivate(i) shared(centroids)
             {
 #endif
@@ -592,11 +595,11 @@ namespace ttk {
                   &(centroids[i].tree), 0, deletedNodesT);
                 ftm::cleanMergeTree<dataType>(centroids[i]);
               }
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
             } // pragma omp task
 #endif
           }
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp taskwait
         } // pragma omp single nowait
       } // pragma omp parallel
@@ -612,17 +615,14 @@ namespace ttk {
       std::vector<std::vector<std::tuple<ftm::idNode, ftm::idNode, double>>>
         &finalMatchings) {
       MergeTreeBarycenter mergeTreeBary;
-      mergeTreeBary.setDebugLevel(2);
-      mergeTreeBary.setProgressiveComputation(false);
+      mergeTreeBary.setDebugLevel(std::min(debugLevel_, 2));
       mergeTreeBary.setBranchDecomposition(true);
       mergeTreeBary.setNormalizedWasserstein(normalizedWasserstein_);
-      mergeTreeBary.setNormalizedWassersteinReg(normalizedWassersteinReg_);
-      mergeTreeBary.setRescaledWasserstein(rescaledWasserstein_);
       mergeTreeBary.setKeepSubtree(keepSubtree_);
       mergeTreeBary.setAssignmentSolver(assignmentSolverID_);
       mergeTreeBary.setIsCalled(true);
       mergeTreeBary.setThreadNumber(this->threadNumber_);
-      mergeTreeBary.setDistanceSquared(true); // squared root
+      mergeTreeBary.setDistanceSquaredRoot(true); // squared root
       mergeTreeBary.setProgressiveBarycenter(progressiveBarycenter_);
       mergeTreeBary.setDeterministic(deterministic_);
       mergeTreeBary.setTol(tol_);
@@ -642,12 +642,12 @@ namespace ttk {
     template <class dataType>
     void computeCentroids(std::vector<ftm::FTMTree_MT *> &trees,
                           std::vector<ftm::MergeTree<dataType>> &centroids,
-                          matchingVector &outputMatching,
+                          matchingVectorType &outputMatching,
                           std::vector<double> &alphas,
                           std::vector<int> &clusteringAssignment,
                           std::vector<ftm::FTMTree_MT *> &trees2,
                           std::vector<ftm::MergeTree<dataType>> &centroids2,
-                          matchingVector &outputMatching2) {
+                          matchingVectorType &outputMatching2) {
       Timer t_clust;
 
       printCentroidsStats(centroids, centroids2);
@@ -712,7 +712,8 @@ namespace ttk {
         // --- Reset vectors
         if(not converged) {
           assignmentC.clear();
-          bestDistanceT = std::vector<dataType>(
+          bestDistanceT.clear();
+          bestDistanceT.resize(
             trees.size(), std::numeric_limits<dataType>::max());
         }
       }
@@ -720,8 +721,8 @@ namespace ttk {
       // Final processing
       printMsg(debug::Separator::L1);
       printMsg("Final assignment");
-      matchingVector matchingsC(noCentroidsT);
-      matchingVector matchingsC2(noCentroidsT);
+      matchingVectorType matchingsC(noCentroidsT);
+      matchingVectorType matchingsC2(noCentroidsT);
       finalAssignmentCentroids<dataType>(trees, centroids, matchingsC,
                                          assignmentC, bestDistanceT, trees2,
                                          centroids2, matchingsC2);
@@ -737,8 +738,8 @@ namespace ttk {
       // Manage output
       std::vector<int> cptCentroid(centroids.size(), 0);
       for(auto asgn : assignmentC) {
-        int centroid = std::get<0>(asgn);
-        int tree = std::get<1>(asgn);
+        int const centroid = std::get<0>(asgn);
+        int const tree = std::get<1>(asgn);
         // std::cout << centroid << " " << tree << std::endl;
         clusteringAssignment[tree] = centroid;
         outputMatching[centroid][tree]
@@ -755,18 +756,19 @@ namespace ttk {
 
     template <class dataType>
     void execute(std::vector<ftm::MergeTree<dataType>> &trees,
-                 matchingVector &outputMatching,
+                 matchingVectorType &outputMatching,
                  std::vector<double> &alphas,
                  std::vector<int> &clusteringAssignment,
                  std::vector<ftm::MergeTree<dataType>> &trees2,
-                 matchingVector &outputMatching2,
-                 std::vector<ftm::MergeTree<dataType>> &centroids) {
+                 matchingVectorType &outputMatching2,
+                 std::vector<ftm::MergeTree<dataType>> &centroids,
+                 std::vector<ftm::MergeTree<dataType>> &centroids2) {
       // --- Preprocessing
       // std::vector<ftm::FTMTree_MT*> oldTrees, oldTrees2;
-      treesNodeCorr_ = std::vector<std::vector<int>>(trees.size());
+      treesNodeCorr_.resize(trees.size());
       preprocessingClustering<dataType>(trees, treesNodeCorr_);
       if(trees2.size() != 0) {
-        trees2NodeCorr_ = std::vector<std::vector<int>>(trees2.size());
+        trees2NodeCorr_.resize(trees2.size());
         preprocessingClustering<dataType>(trees2, trees2NodeCorr_, false);
       }
       std::vector<ftm::FTMTree_MT *> treesT;
@@ -779,7 +781,6 @@ namespace ttk {
       std::vector<std::vector<ftm::MergeTree<dataType>>> allCentroids;
       initCentroids<dataType>(treesT, treesT2, allCentroids);
       centroids = allCentroids[0];
-      std::vector<ftm::MergeTree<dataType>> centroids2;
       if(trees2.size() != 0)
         centroids2 = allCentroids[1];
       /*for(unsigned int i = 0; i < centroids.size(); ++i){
@@ -811,11 +812,12 @@ namespace ttk {
 
     template <class dataType>
     void execute(std::vector<ftm::MergeTree<dataType>> &trees,
-                 matchingVector &outputMatching,
+                 matchingVectorType &outputMatching,
                  std::vector<int> &clusteringAssignment,
                  std::vector<ftm::MergeTree<dataType>> &trees2,
-                 matchingVector &outputMatching2,
-                 std::vector<ftm::MergeTree<dataType>> &centroids) {
+                 matchingVectorType &outputMatching2,
+                 std::vector<ftm::MergeTree<dataType>> &centroids,
+                 std::vector<ftm::MergeTree<dataType>> &centroids2) {
       if(trees2.size() != 0)
         printMsg("Use join and split trees");
 
@@ -824,19 +826,18 @@ namespace ttk {
         alphas.push_back(1.0 / trees.size());
 
       execute<dataType>(trees, outputMatching, alphas, clusteringAssignment,
-                        trees2, outputMatching2, centroids);
+                        trees2, outputMatching2, centroids, centroids2);
     }
 
     template <class dataType>
     void execute(std::vector<ftm::MergeTree<dataType>> &trees,
-                 matchingVector &outputMatching,
+                 matchingVectorType &outputMatching,
                  std::vector<int> &clusteringAssignment,
                  std::vector<ftm::MergeTree<dataType>> &centroids) {
-      std::vector<ftm::MergeTree<dataType>> trees2
-        = std::vector<ftm::MergeTree<dataType>>();
-      matchingVector outputMatching2 = matchingVector();
+      std::vector<ftm::MergeTree<dataType>> trees2, centroids2;
+      matchingVectorType outputMatching2 = matchingVectorType();
       execute<dataType>(trees, outputMatching, clusteringAssignment, trees2,
-                        outputMatching2, centroids);
+                        outputMatching2, centroids, centroids2);
     }
 
     // ------------------------------------------------------------------------
@@ -877,7 +878,7 @@ namespace ttk {
     void
       postprocessingClustering(std::vector<ftm::MergeTree<dataType>> &trees,
                                std::vector<ftm::MergeTree<dataType>> &centroids,
-                               matchingVector &outputMatching,
+                               matchingVectorType &outputMatching,
                                std::vector<int> &clusteringAssignment) {
       for(unsigned int i = 0; i < trees.size(); ++i)
         postprocessingPipeline<dataType>(&(trees[i].tree));

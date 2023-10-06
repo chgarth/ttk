@@ -33,13 +33,13 @@ namespace ttk {
     int ContourForests::build(const triangulationType &mesh) {
 
 #ifdef TTK_ENABLE_OPENMP
-      ParallelGuard pg{parallelParams_.nbThreads};
+      const ParallelGuard pg{parallelParams_.nbThreads};
 #endif
 
       DebugTimer timerTOTAL;
 
       // -----------
-      // Paramemters
+      // Parameters
       // -----------
       initTreeType();
       initNbScalars(mesh);
@@ -115,10 +115,10 @@ namespace ttk {
         vect_baseUF_ST[tree].resize(scalars_->size);
 
         // Statistical reserve
-        parallelData_.trees[tree].jt_->treeData_.nodes.reserve(resSize);
-        parallelData_.trees[tree].jt_->treeData_.superArcs.reserve(resSize);
-        parallelData_.trees[tree].st_->treeData_.nodes.reserve(resSize);
-        parallelData_.trees[tree].st_->treeData_.superArcs.reserve(resSize);
+        parallelData_.trees[tree].jt_.treeData_.nodes.reserve(resSize);
+        parallelData_.trees[tree].jt_.treeData_.superArcs.reserve(resSize);
+        parallelData_.trees[tree].st_.treeData_.nodes.reserve(resSize);
+        parallelData_.trees[tree].st_.treeData_.superArcs.reserve(resSize);
       }
       printDebug(timerAllocPara, "Parallel allocations             ");
 
@@ -139,9 +139,9 @@ namespace ttk {
         } else {
           for(idPartition i = 0; i < parallelParams_.nbPartitions; i++) {
             std::cout << i << " jt:" << std::endl;
-            parallelData_.trees[i].jt_->printTree2();
+            parallelData_.trees[i].jt_.printTree2();
             std::cout << i << " st:" << std::endl;
-            parallelData_.trees[i].st_->printTree2();
+            parallelData_.trees[i].st_.printTree2();
             std::cout << "-----" << std::endl;
           }
         }
@@ -192,19 +192,19 @@ namespace ttk {
       } else {
         if(parallelParams_.partitionNum >= 0) {
           if(parallelParams_.partitionNum > parallelParams_.nbInterfaces) {
-            jt_->clone(parallelData_.trees[parallelParams_.nbInterfaces].jt_);
-            st_->clone(parallelData_.trees[parallelParams_.nbInterfaces].st_);
+            jt_.clone(&parallelData_.trees[parallelParams_.nbInterfaces].jt_);
+            st_.clone(&parallelData_.trees[parallelParams_.nbInterfaces].st_);
           } else {
-            jt_->clone(parallelData_.trees[parallelParams_.partitionNum].jt_);
-            st_->clone(parallelData_.trees[parallelParams_.partitionNum].st_);
+            jt_.clone(&parallelData_.trees[parallelParams_.partitionNum].jt_);
+            st_.clone(&parallelData_.trees[parallelParams_.partitionNum].st_);
           }
         } else if(parallelParams_.nbPartitions == 1) {
-          jt_->clone(parallelData_.trees[0].jt_);
-          st_->clone(parallelData_.trees[0].st_);
+          jt_.clone(&parallelData_.trees[0].jt_);
+          st_.clone(&parallelData_.trees[0].st_);
         } else {
           unify();
-          jt_->parallelInitNodeValence(parallelParams_.nbThreads);
-          st_->parallelInitNodeValence(parallelParams_.nbThreads);
+          jt_.parallelInitNodeValence(parallelParams_.nbThreads);
+          st_.parallelInitNodeValence(parallelParams_.nbThreads);
         }
       }
 
@@ -217,10 +217,11 @@ namespace ttk {
       if(params_->treeType == TreeType::Contour
          && parallelParams_.partitionNum == -1 && params_->simplifyThreshold) {
         DebugTimer timerGlobalSimplify;
-        SimplexId simplifed = globalSimplify<scalarType>(-1, nullVertex, mesh);
+        SimplexId const simplified
+          = globalSimplify<scalarType>(-1, nullVertex, this->storage_, mesh);
         if(params_->debugLevel >= 1) {
           printDebug(timerGlobalSimplify, "Simplify Contour tree            ");
-          std::cout << " ( " << simplifed << " pairs merged )" << std::endl;
+          std::cout << " ( " << simplified << " pairs merged )" << std::endl;
         }
       }
 
@@ -235,17 +236,17 @@ namespace ttk {
           printTree2();
         else {
           std::cout << "JT :" << std::endl;
-          jt_->printTree2();
+          jt_.printTree2();
           std::cout << "ST :" << std::endl;
-          st_->printTree2();
+          st_.printTree2();
         }
       } else if(params_->debugLevel > 2) {
         std::stringstream msg;
         if(params_->treeType == TreeType::Contour)
           msg << "max node : " << getNumberOfNodes();
         else {
-          msg << "JT max node : " << jt_->getNumberOfNodes();
-          msg << "ST max node : " << st_->getNumberOfNodes();
+          msg << "JT max node : " << jt_.getNumberOfNodes();
+          msg << "ST max node : " << st_.getNumberOfNodes();
         }
         this->printMsg(msg.str());
       }
@@ -253,17 +254,17 @@ namespace ttk {
       if(params_->treeType == TreeType::Contour) {
         updateSegmentation();
       } else {
-        jt_->updateSegmentation();
-        st_->updateSegmentation();
+        jt_.updateSegmentation();
+        st_.updateSegmentation();
       }
 
       // reclaim memory
       {
         for(idPartition tree = 0; tree < parallelParams_.nbPartitions; ++tree) {
-          parallelData_.trees[tree].jt_->treeData_.nodes.shrink_to_fit();
-          parallelData_.trees[tree].jt_->treeData_.superArcs.shrink_to_fit();
-          parallelData_.trees[tree].st_->treeData_.nodes.shrink_to_fit();
-          parallelData_.trees[tree].st_->treeData_.superArcs.shrink_to_fit();
+          parallelData_.trees[tree].jt_.treeData_.nodes.shrink_to_fit();
+          parallelData_.trees[tree].jt_.treeData_.superArcs.shrink_to_fit();
+          parallelData_.trees[tree].st_.treeData_.nodes.shrink_to_fit();
+          parallelData_.trees[tree].st_.treeData_.superArcs.shrink_to_fit();
         }
         // Not while arc segmentation depends on std::vector in partitions
         // parallelData_.interfaces.clear();
@@ -279,7 +280,7 @@ namespace ttk {
       std::vector<std::vector<ExtendedUnionFind *>> &vect_baseUF_ST,
       const triangulationType &mesh) {
 
-      std::vector<float> timeSimplify(parallelParams_.nbPartitions, 0);
+      const std::vector<float> timeSimplify(parallelParams_.nbPartitions, 0);
       std::vector<float> speedProcess(parallelParams_.nbPartitions * 2, 0);
 #ifdef TTK_ENABLE_CONTOUR_FORESTS_PARALLEL_SIMPLIFY
       SimplexId nbPairMerged = 0;
@@ -335,7 +336,7 @@ namespace ttk {
             if(params_->treeType == TreeType::Join
                || params_->treeType == TreeType::Contour
                || params_->treeType == TreeType::JoinAndSplit) {
-              DebugTimer timerSimplify;
+
               DebugTimer timerBuild;
               parallelData_.trees[i].getJoinTree()->build(
                 vect_baseUF_JT[i], std::get<0>(overlaps), std::get<1>(overlaps),
@@ -344,6 +345,7 @@ namespace ttk {
               speedProcess[i] = partitionSize / timerBuild.getElapsedTime();
 
 #ifdef TTK_ENABLE_CONTOUR_FORESTS_PARALLEL_SIMPLIFY
+              DebugTimer timerSimplify;
               timerSimplify.reStart();
               const SimplexId tmpMerge =
 
@@ -368,7 +370,7 @@ namespace ttk {
             if(params_->treeType == TreeType::Split
                || params_->treeType == TreeType::Contour
                || params_->treeType == TreeType::JoinAndSplit) {
-              DebugTimer timerSimplify;
+
               DebugTimer timerBuild;
               parallelData_.trees[i].getSplitTree()->build(
                 vect_baseUF_ST[i], std::get<1>(overlaps), std::get<0>(overlaps),
@@ -378,6 +380,7 @@ namespace ttk {
                 = partitionSize / timerBuild.getElapsedTime();
 
 #ifdef TTK_ENABLE_CONTOUR_FORESTS_PARALLEL_SIMPLIFY
+              DebugTimer timerSimplify;
               timerSimplify.reStart();
               const SimplexId tmpMerge =
 
@@ -422,7 +425,7 @@ namespace ttk {
         if(params_->treeType == TreeType::Contour) {
           DebugTimer timerCombine;
 
-          // clone here if we do not want to destry original merge trees!
+          // clone here if we do not want to destroy original merge trees!
           auto *jt = parallelData_.trees[i].getJoinTree();
           auto *st = parallelData_.trees[i].getSplitTree();
 
@@ -455,7 +458,7 @@ namespace ttk {
 
           // Combine, destroy JT and ST to compute CT
           parallelData_.trees[i].combine(
-            std::get<0>(seedsPos), std::get<1>(seedsPos));
+            std::get<0>(seedsPos), std::get<1>(seedsPos), this->storage_);
           parallelData_.trees[i].updateSegmentation();
 
           if(params_->debugLevel > 2) {
@@ -533,7 +536,7 @@ namespace ttk {
       for(SimplexId e = 0; e < nbEdges; e++) {
 
 #ifdef TTK_ENABLE_OPENMP
-        idPartition part = omp_get_thread_num();
+        idPartition const part = omp_get_thread_num();
 #else
         idPartition part = 0;
 #endif

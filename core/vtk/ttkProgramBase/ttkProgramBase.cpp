@@ -24,7 +24,7 @@ int ttkProgramBase::load(const std::vector<std::string> &inputPaths) {
 
   for(int i = 0; i < (int)inputPaths.size(); i++) {
 
-    string extension
+    string const extension
       = inputPaths[i].substr(inputPaths[i].find_last_of('.') + 1);
 
     if(extension == "vti") {
@@ -36,7 +36,7 @@ int ttkProgramBase::load(const std::vector<std::string> &inputPaths) {
         inputPaths[i], unstructuredGridReaders_);
     } else {
       stringstream msg;
-      msg << "[ttkProgramBase] Unkown input extension `" << extension << "' :("
+      msg << "[ttkProgramBase] Unknown input extension `" << extension << "' :("
           << endl;
       printErr(msg.str());
       return -1;

@@ -13,11 +13,11 @@
 #include <array>
 
 // base code includes
-#include <AbstractTriangulation.h>
+#include <RegularGridTriangulation.h>
 
 namespace ttk {
 
-  class ImplicitTriangulation : public AbstractTriangulation {
+  class ImplicitTriangulation : public RegularGridTriangulation {
 
   public:
     ImplicitTriangulation();
@@ -28,14 +28,8 @@ namespace ttk {
     ImplicitTriangulation &operator=(const ImplicitTriangulation &) = default;
     ImplicitTriangulation &operator=(ImplicitTriangulation &&) = default;
 
-    int getGridDimensions(std::vector<int> &dimensions) override {
-
-      dimensions.resize(3);
-      dimensions[0] = dimensions_[0];
-      dimensions[1] = dimensions_[1];
-      dimensions[2] = dimensions_[2];
-
-      return 0;
+    inline const std::array<SimplexId, 3> &getGridDimensions() const override {
+      return this->dimensions_;
     }
 
     int getCellEdgeInternal(const SimplexId &cellId,
@@ -210,7 +204,7 @@ namespace ttk {
                      const float &zSpacing,
                      const SimplexId &xDim,
                      const SimplexId &yDim,
-                     const SimplexId &zDim);
+                     const SimplexId &zDim) override;
 
     virtual int preconditionVerticesInternal() = 0;
     int preconditionVertexNeighborsInternal() override;
@@ -237,46 +231,42 @@ namespace ttk {
       return 0;
     }
 
-    int getCellVTKIDInternal(const int &ttkId, int &vtkId) const override;
-
-#ifdef TTK_ENABLE_MPI
-
-  protected:
-    template <typename Func0, typename Func1, typename Func2>
-    int exchangeDistributedInternal(const Func0 &getGlobalSimplexId,
-                                    const Func1 &storeGlobalSimplexId,
-                                    const Func2 &iterCond,
-                                    const int nSimplicesPerCell);
-
-    int preconditionDistributedCellRanges();
-    size_t
-      computeCellRangeOffsets(std::vector<size_t> &nSimplicesPerRange) const;
-
-    int preconditionDistributedCells() override;
-    int preconditionDistributedEdges() override;
-    int preconditionDistributedVertices() override;
-    int preconditionDistributedTriangles() override;
-
-  public:
-    inline SimplexId
-      getCellGlobalIdInternal(const SimplexId lcid) const override {
+    inline int getCellVTKIDInternal(const int &ttkId,
+                                    int &vtkId) const override {
 #ifndef TTK_ENABLE_KAMIKAZE
-      if(lcid < 0 || lcid >= this->getNumberOfCellsInternal()) {
+      if(ttkId < 0) {
         return -1;
       }
 #endif // TTK_ENABLE_KAMIKAZE
-      return this->cellLidToGid_[lcid];
+      const SimplexId nSimplexPerCell{this->getDimensionality() == 3 ? 6 : 2};
+      vtkId = ttkId / nSimplexPerCell;
+      return 0;
     }
+
+#ifdef TTK_ENABLE_MPI
+
+  protected:
+    int preconditionDistributedCells() override;
+
+  public:
+    void createMetaGrid(const double *const bounds) override;
+    int getCellRankInternal(const SimplexId lcid) const override;
+
+  protected:
+    bool isVertexOnGlobalBoundaryInternal(const SimplexId lvid) const override;
+    bool isEdgeOnGlobalBoundaryInternal(const SimplexId leid) const override;
+    bool
+      isTriangleOnGlobalBoundaryInternal(const SimplexId ltid) const override;
+
+  private:
+    std::array<SimplexId, 3>
+      getVertGlobalCoords(const SimplexId lvid) const override;
+    std::array<SimplexId, 3>
+      getVertLocalCoords(const SimplexId gvid) const override;
 
 #endif // TTK_ENABLE_MPI
 
   protected:
-#ifdef TTK_ENABLE_MPI
-    // the cellGid_ array only applies on cubic cells, not on
-    // simplicial ones...
-    std::vector<SimplexId> cellLidToGid_{};
-#endif // TTK_ENABLE_MPI
-
     enum class VertexPosition : char {
       // a--------b
 
@@ -486,10 +476,8 @@ namespace ttk {
 
     bool hasPreconditionedVerticesAndCells_{false};
 
-    int dimensionality_; //
     float origin_[3]; //
     float spacing_[3]; //
-    SimplexId dimensions_[3]; // dimensions
     SimplexId nbvoxels_[3]; // nombre de voxels par axe
 
     // Vertex helper //
@@ -529,10 +517,12 @@ namespace ttk {
 
     //\cond
     // 2D //
-    void vertexToPosition2d(const SimplexId vertex, SimplexId p[2]) const;
+    void vertexToPosition2d(const SimplexId vertex,
+                            SimplexId p[2]) const override;
     void
       edgeToPosition2d(const SimplexId edge, const int k, SimplexId p[2]) const;
-    void triangleToPosition2d(const SimplexId triangle, SimplexId p[2]) const;
+    void triangleToPosition2d(const SimplexId triangle,
+                              SimplexId p[2]) const override;
 
     SimplexId getVertexEdge2dA(const SimplexId p[2], const int id) const;
     SimplexId getVertexEdge2dB(const SimplexId p[2], const int id) const;
@@ -580,14 +570,15 @@ namespace ttk {
     SimplexId getEdgeStar2dH(const SimplexId p[2], const int id) const;
 
     // 3D //
-    void vertexToPosition(const SimplexId vertex, SimplexId p[3]) const;
+    void vertexToPosition(const SimplexId vertex,
+                          SimplexId p[3]) const override;
     void
       edgeToPosition(const SimplexId edge, const int k, SimplexId p[3]) const;
     void triangleToPosition(const SimplexId triangle,
                             const int k,
-                            SimplexId p[3]) const;
+                            SimplexId p[3]) const override;
     void tetrahedronToPosition(const SimplexId tetrahedron,
-                               SimplexId p[3]) const;
+                               SimplexId p[3]) const override;
 
     SimplexId getVertexEdgeA(const SimplexId p[3], const int id) const;
     SimplexId getVertexEdgeB(const SimplexId p[3], const int id) const;
@@ -860,7 +851,7 @@ namespace ttk {
 
   public:
     inline SimplexId TTK_TRIANGULATION_INTERNAL(getVertexNeighborNumber)(
-      const SimplexId &vertexId) const override {
+      const SimplexId &vertexId) const final {
 
 #ifndef TTK_ENABLE_KAMIKAZE
       if(vertexId < 0 or vertexId >= vertexNumber_)
@@ -927,10 +918,143 @@ namespace ttk {
     bool TTK_TRIANGULATION_INTERNAL(isEdgeOnBoundary)(
       const SimplexId &edgeId) const override;
 
-    int TTK_TRIANGULATION_INTERNAL(getVertexNeighbor)(
+    inline int TTK_TRIANGULATION_INTERNAL(getVertexNeighbor)(
       const SimplexId &vertexId,
       const int &localNeighborId,
-      SimplexId &neighborId) const override;
+      SimplexId &neighborId) const final {
+
+#ifndef TTK_ENABLE_KAMIKAZE
+      if(localNeighborId < 0
+         or localNeighborId >= getVertexNeighborNumber(vertexId))
+        return -1;
+#endif // !TTK_ENABLE_KAMIKAZE
+
+      switch(this->underlying().getVertexPosition(vertexId)) {
+        case VertexPosition::CENTER_3D:
+          neighborId
+            = vertexId + this->vertexNeighborABCDEFGH_[localNeighborId];
+          break;
+        case VertexPosition::FRONT_FACE_3D:
+          neighborId = vertexId + this->vertexNeighborABCD_[localNeighborId];
+          break;
+        case VertexPosition::BACK_FACE_3D:
+          neighborId = vertexId + this->vertexNeighborEFGH_[localNeighborId];
+          break;
+        case VertexPosition::TOP_FACE_3D:
+          neighborId = vertexId + this->vertexNeighborAEFB_[localNeighborId];
+          break;
+        case VertexPosition::BOTTOM_FACE_3D:
+          neighborId = vertexId + this->vertexNeighborGHDC_[localNeighborId];
+          break;
+        case VertexPosition::LEFT_FACE_3D:
+          neighborId = vertexId + this->vertexNeighborAEGC_[localNeighborId];
+          break;
+        case VertexPosition::RIGHT_FACE_3D:
+          neighborId = vertexId + this->vertexNeighborBFHD_[localNeighborId];
+          break;
+        case VertexPosition::TOP_FRONT_EDGE_3D: // ab
+          neighborId = vertexId + this->vertexNeighborAB_[localNeighborId];
+          break;
+        case VertexPosition::BOTTOM_FRONT_EDGE_3D: // cd
+          neighborId = vertexId + this->vertexNeighborCD_[localNeighborId];
+          break;
+        case VertexPosition::LEFT_FRONT_EDGE_3D: // ac
+          neighborId = vertexId + this->vertexNeighborAC_[localNeighborId];
+          break;
+        case VertexPosition::RIGHT_FRONT_EDGE_3D: // bd
+          neighborId = vertexId + this->vertexNeighborBD_[localNeighborId];
+          break;
+        case VertexPosition::TOP_BACK_EDGE_3D: // ef
+          neighborId = vertexId + this->vertexNeighborEF_[localNeighborId];
+          break;
+        case VertexPosition::BOTTOM_BACK_EDGE_3D: // gh
+          neighborId = vertexId + this->vertexNeighborGH_[localNeighborId];
+          break;
+        case VertexPosition::LEFT_BACK_EDGE_3D: // eg
+          neighborId = vertexId + this->vertexNeighborEG_[localNeighborId];
+          break;
+        case VertexPosition::RIGHT_BACK_EDGE_3D: // fh
+          neighborId = vertexId + this->vertexNeighborFH_[localNeighborId];
+          break;
+        case VertexPosition::TOP_LEFT_EDGE_3D: // ae
+          neighborId = vertexId + this->vertexNeighborAE_[localNeighborId];
+          break;
+        case VertexPosition::TOP_RIGHT_EDGE_3D: // bf
+          neighborId = vertexId + this->vertexNeighborBF_[localNeighborId];
+          break;
+        case VertexPosition::BOTTOM_LEFT_EDGE_3D: // cg
+          neighborId = vertexId + this->vertexNeighborCG_[localNeighborId];
+          break;
+        case VertexPosition::BOTTOM_RIGHT_EDGE_3D: // dh
+          neighborId = vertexId + this->vertexNeighborDH_[localNeighborId];
+          break;
+        case VertexPosition::TOP_LEFT_FRONT_CORNER_3D: // a
+          neighborId = vertexId + this->vertexNeighborA_[localNeighborId];
+          break;
+        case VertexPosition::TOP_RIGHT_FRONT_CORNER_3D: // b
+          neighborId = vertexId + this->vertexNeighborB_[localNeighborId];
+          break;
+        case VertexPosition::BOTTOM_LEFT_FRONT_CORNER_3D: // c
+          neighborId = vertexId + this->vertexNeighborC_[localNeighborId];
+          break;
+        case VertexPosition::BOTTOM_RIGHT_FRONT_CORNER_3D: // d
+          neighborId = vertexId + this->vertexNeighborD_[localNeighborId];
+          break;
+        case VertexPosition::TOP_LEFT_BACK_CORNER_3D: // e
+          neighborId = vertexId + this->vertexNeighborE_[localNeighborId];
+          break;
+        case VertexPosition::TOP_RIGHT_BACK_CORNER_3D: // f
+          neighborId = vertexId + this->vertexNeighborF_[localNeighborId];
+          break;
+        case VertexPosition::BOTTOM_LEFT_BACK_CORNER_3D: // g
+          neighborId = vertexId + this->vertexNeighborG_[localNeighborId];
+          break;
+        case VertexPosition::BOTTOM_RIGHT_BACK_CORNER_3D: // h
+          neighborId = vertexId + this->vertexNeighborH_[localNeighborId];
+          break;
+        case VertexPosition::CENTER_2D:
+          neighborId = vertexId + this->vertexNeighbor2dABCD_[localNeighborId];
+          break;
+        case VertexPosition::TOP_EDGE_2D:
+          neighborId = vertexId + this->vertexNeighbor2dAB_[localNeighborId];
+          break;
+        case VertexPosition::BOTTOM_EDGE_2D:
+          neighborId = vertexId + this->vertexNeighbor2dCD_[localNeighborId];
+          break;
+        case VertexPosition::LEFT_EDGE_2D:
+          neighborId = vertexId + this->vertexNeighbor2dAC_[localNeighborId];
+          break;
+        case VertexPosition::RIGHT_EDGE_2D:
+          neighborId = vertexId + this->vertexNeighbor2dBD_[localNeighborId];
+          break;
+        case VertexPosition::TOP_LEFT_CORNER_2D: // a
+          neighborId = vertexId + this->vertexNeighbor2dA_[localNeighborId];
+          break;
+        case VertexPosition::TOP_RIGHT_CORNER_2D: // b
+          neighborId = vertexId + this->vertexNeighbor2dB_[localNeighborId];
+          break;
+        case VertexPosition::BOTTOM_LEFT_CORNER_2D: // c
+          neighborId = vertexId + this->vertexNeighbor2dC_[localNeighborId];
+          break;
+        case VertexPosition::BOTTOM_RIGHT_CORNER_2D: // d
+          neighborId = vertexId + this->vertexNeighbor2dD_[localNeighborId];
+          break;
+        case VertexPosition::CENTER_1D:
+          neighborId = (localNeighborId == 0 ? vertexId + 1 : vertexId - 1);
+          break;
+        case VertexPosition::LEFT_CORNER_1D:
+          neighborId = vertexId + 1;
+          break;
+        case VertexPosition::RIGHT_CORNER_1D:
+          neighborId = vertexId - 1;
+          break;
+        default:
+          neighborId = -1;
+          break;
+      }
+
+      return 0;
+    }
 
     int getVertexEdgeInternal(const SimplexId &vertexId,
                               const int &id,

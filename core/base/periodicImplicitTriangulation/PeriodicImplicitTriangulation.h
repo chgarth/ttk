@@ -13,13 +13,14 @@
 #pragma once
 
 // base code includes
-#include <AbstractTriangulation.h>
+#include <RegularGridTriangulation.h>
 
 #include <array>
+#include <numeric>
 
 namespace ttk {
 
-  class PeriodicImplicitTriangulation : public AbstractTriangulation {
+  class PeriodicImplicitTriangulation : public RegularGridTriangulation {
 
   public:
     PeriodicImplicitTriangulation();
@@ -217,9 +218,14 @@ namespace ttk {
                      const float &xSpacing,
                      const float &ySpacing,
                      const float &zSpacing,
-                     const int &xDim,
-                     const int &yDim,
-                     const int &zDim);
+                     const SimplexId &xDim,
+                     const SimplexId &yDim,
+                     const SimplexId &zDim) override;
+
+    inline const std::array<ttk::SimplexId, 3> &
+      getGridDimensions() const override {
+      return this->dimensions_;
+    }
 
     virtual int preconditionVerticesInternal() = 0;
     int preconditionEdgesInternal() override = 0;
@@ -244,13 +250,23 @@ namespace ttk {
       }
       return 0;
     }
-    int getCellVTKIDInternal(const int &ttkId, int &vtkId) const override;
+
+    inline int getCellVTKIDInternal(const int &ttkId,
+                                    int &vtkId) const override {
+#ifndef TTK_ENABLE_KAMIKAZE
+      if(ttkId < 0) {
+        return -1;
+      }
+#endif // TTK_ENABLE_KAMIKAZE
+      const SimplexId nSimplexPerCell{this->getDimensionality() == 3 ? 6 : 2};
+      vtkId = ttkId / nSimplexPerCell;
+      return 0;
+    }
 
   protected:
     int dimensionality_; //
     float origin_[3]; //
     float spacing_[3]; //
-    SimplexId dimensions_[3]; // dimensions
     SimplexId nbvoxels_[3]; // nombre de voxels par axe
     SimplexId wrap_[3];
 
@@ -351,10 +367,12 @@ namespace ttk {
 
     //\cond
     // 2D //
-    void vertexToPosition2d(const SimplexId vertex, SimplexId p[2]) const;
+    void vertexToPosition2d(const SimplexId vertex,
+                            SimplexId p[2]) const override;
     void
       edgeToPosition2d(const SimplexId edge, const int k, SimplexId p[2]) const;
-    void triangleToPosition2d(const SimplexId triangle, SimplexId p[2]) const;
+    void triangleToPosition2d(const SimplexId triangle,
+                              SimplexId p[2]) const override;
 
     SimplexId getVertexNeighbor2d(const SimplexId p[2],
                                   const SimplexId v,
@@ -375,14 +393,15 @@ namespace ttk {
     SimplexId getEdgeStar2dH(const SimplexId p[2], const int id) const;
 
     // 3D //
-    void vertexToPosition(const SimplexId vertex, SimplexId p[3]) const;
+    void vertexToPosition(const SimplexId vertex,
+                          SimplexId p[3]) const override;
     void
       edgeToPosition(const SimplexId edge, const int k, SimplexId p[3]) const;
     void triangleToPosition(const SimplexId triangle,
                             const int k,
-                            SimplexId p[3]) const;
+                            SimplexId p[3]) const override;
     void tetrahedronToPosition(const SimplexId tetrahedron,
-                               SimplexId p[3]) const;
+                               SimplexId p[3]) const override;
 
     SimplexId getVertexNeighbor3d(const SimplexId p[3],
                                   const SimplexId v,
@@ -501,6 +520,26 @@ namespace ttk {
                                          const SimplexId p[3],
                                          const int id) const;
     //\endcond
+
+#ifdef TTK_ENABLE_MPI
+
+  protected:
+    int preconditionDistributedCells() override;
+    // std::shared_ptr<PeriodicImplicitTriangulation> metaGrid_;
+    std::array<unsigned char, 6> isBoundaryPeriodic{};
+
+  public:
+    void createMetaGrid(const double *const bounds) override;
+    void setIsBoundaryPeriodic(std::array<unsigned char, 6> boundary);
+    int getCellRankInternal(const SimplexId lcid) const override;
+
+  protected:
+    std::array<SimplexId, 3>
+      getVertGlobalCoords(const SimplexId lvid) const override;
+    std::array<SimplexId, 3>
+      getVertLocalCoords(const SimplexId gvid) const override;
+
+#endif // TTK_ENABLE_MPI
   };
 
   template <typename Derived>
@@ -998,8 +1037,8 @@ inline ttk::SimplexId
 inline ttk::SimplexId
   ttk::PeriodicImplicitTriangulation::getEdgeLink2dD1(const SimplexId p[2],
                                                       const int id) const {
-  SimplexId wrapX = (p[0] < nbvoxels_[Di_]) ? 0 : wrap_[0];
-  SimplexId wrapY = (p[1] < nbvoxels_[Dj_]) ? 0 : wrap_[1];
+  const SimplexId wrapX = (p[0] < nbvoxels_[Di_]) ? 0 : wrap_[0];
+  const SimplexId wrapY = (p[1] < nbvoxels_[Dj_]) ? 0 : wrap_[1];
   switch(id) {
     case 0:
       return p[0] + p[1] * vshift_[0];

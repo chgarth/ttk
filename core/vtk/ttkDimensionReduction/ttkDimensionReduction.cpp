@@ -68,6 +68,7 @@ int ttkDimensionReduction::RequestData(vtkInformation *ttkNotUsed(request),
 
     std::vector<double> inputData;
     std::vector<vtkAbstractArray *> arrays;
+    arrays.reserve(ScalarFields.size());
     for(const auto &s : ScalarFields)
       arrays.push_back(input->GetColumnByName(s.data()));
     for(SimplexId i = 0; i < numberOfRows; ++i) {
@@ -77,21 +78,15 @@ int ttkDimensionReduction::RequestData(vtkInformation *ttkNotUsed(request),
 
     outputData_.clear();
 
-    this->setInputMatrixDimensions(numberOfRows, numberOfColumns);
-    this->setInputMatrix(inputData.data());
-    this->setInputMethod(Method);
-    this->setInputNumberOfComponents(NumberOfComponents);
-    this->setInputNumberOfNeighbors(NumberOfNeighbors);
-    this->setInputIsDeterministic(IsDeterministic);
-    this->setOutputComponents(&outputData_);
-    const int errorCode = this->execute();
+    const int errorCode = this->execute(
+      this->outputData_, inputData, numberOfRows, numberOfColumns);
 
     if(!errorCode) {
       if(KeepAllDataArrays)
         output->ShallowCopy(input);
 
       for(int i = 0; i < NumberOfComponents; ++i) {
-        std::string s = "Component_" + std::to_string(i);
+        std::string const s = "Component_" + std::to_string(i);
         vtkNew<vtkDoubleArray> arr{};
         ttkUtils::SetVoidArray(arr, outputData_[i].data(), numberOfRows, 1);
         arr->SetName(s.data());

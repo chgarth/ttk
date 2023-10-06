@@ -217,12 +217,12 @@ ttk::SimplexId ttk::QuadrangulationSubdivision::findEdgeMiddle(
   SimplexId midId{};
   float minValue{std::numeric_limits<float>::infinity()};
 
-  // euclidian barycenter of a and b
+  // euclidean barycenter of a and b
   Point edgeEuclBary = (outputPoints_[e[0]] + outputPoints_[e[1]]) * 0.5F;
 
   for(size_t i = 0; i < vertexDistance_[e[0]].size(); ++i) {
-    float m = vertexDistance_[e[0]][i];
-    float n = vertexDistance_[e[1]][i];
+    float const m = vertexDistance_[e[0]][i];
+    float const n = vertexDistance_[e[1]][i];
     // stay on the shortest path between a and b
     float sum = m + n;
 
@@ -237,10 +237,10 @@ ttk::SimplexId ttk::QuadrangulationSubdivision::findEdgeMiddle(
       sum += std::abs(m - n);
     }
 
-    // get the euclidian distance to AB
+    // get the euclidean distance to AB
     Point curr{};
     triangulation.getVertexPoint(i, curr[0], curr[1], curr[2]);
-    // try to minimize the euclidian distance to AB too
+    // try to minimize the euclidean distance to AB too
     sum += Geometry::distance(curr.data(), edgeEuclBary.data());
 
     // search for the minimizing index

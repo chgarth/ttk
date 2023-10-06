@@ -1,6 +1,6 @@
 /// \namespace ttk The Topology ToolKit
 
-/// \mainpage TTK 1.1 Documentation
+/// \mainpage TTK 1.2 Documentation
 /// \image html "splash.png"
 /// Useful links:
 ///   - TTK Home:
@@ -279,12 +279,12 @@ namespace ttk {
          && (globalDebugLevel_ < (int)priority))
         return 0;
 
-      int nRows = rows.size();
-      int nCols = nRows > 0 ? rows[0].size() : 0;
+      const int nRows = rows.size();
+      const int nCols = nRows > 0 ? rows[0].size() : 0;
       if(nCols < 1)
         return 0;
 
-      std::vector<std::string> formatedRows(nRows);
+      std::vector<std::string> formattedRows(nRows);
       std::vector<size_t> colSizes(nCols, 0);
       for(int i = 0; i < nRows; i++)
         for(int j = 0; j < nCols; j++)
@@ -293,7 +293,7 @@ namespace ttk {
       auto formatCell = [](const std::string &value, const size_t &width,
                            const std::string &fillSymbol) {
         std::string cell = value;
-        int diff = width - cell.size();
+        const int diff = width - cell.size();
         for(int i = 0; i < diff; i++)
           cell += fillSymbol;
         return cell;
@@ -302,7 +302,7 @@ namespace ttk {
       // Values
       int resultIndex = 0;
       for(int i = 0; i < nRows; i++) {
-        auto &row = formatedRows[resultIndex++];
+        auto &row = formattedRows[resultIndex++];
         row
           = formatCell(rows[i][0], colSizes[0], " ") + (hasHeader ? ": " : "");
         if(nCols > 1)
@@ -311,7 +311,7 @@ namespace ttk {
           row += "," + formatCell(rows[i][j], colSizes[j], " ");
       }
 
-      return this->printMsg(formatedRows, priority, lineMode, stream);
+      return this->printMsg(formattedRows, priority, lineMode, stream);
     }
 
     /**
@@ -325,8 +325,9 @@ namespace ttk {
          && (globalDebugLevel_ < (int)priority))
         return 0;
 
-      return this->printMsgInternal(
-        "", "", std::string(1, (char &)separator), priority, lineMode, stream);
+      return this->printMsgInternal("", "",
+                                    std::string(1, (const char &)separator),
+                                    priority, lineMode, stream);
     }
 
     /**
@@ -351,8 +352,9 @@ namespace ttk {
          && (globalDebugLevel_ < (int)priority))
         return 0;
 
-      return this->printMsgInternal(
-        msg, "", std::string(1, (char &)separator), priority, lineMode, stream);
+      return this->printMsgInternal(msg, "",
+                                    std::string(1, (const char &)separator),
+                                    priority, lineMode, stream);
     }
 
     /**
@@ -360,14 +362,17 @@ namespace ttk {
      * debug message.
      */
     inline void setDebugMsgPrefix(const std::string &prefix) {
-#if TTK_ENABLE_MPI
+      this->debugMsgNamePrefix_ = prefix;
+#ifdef TTK_ENABLE_MPI
       this->debugMsgPrefix_
-        = prefix.length() > 0
-            ? "[" + prefix + "-" + std::to_string(MPIrank_) + "] "
+        = debugMsgNamePrefix_.length() > 0
+            ? "[" + debugMsgNamePrefix_ + "-" + std::to_string(MPIrank_) + "] "
             : "";
 #else
-      this->debugMsgPrefix_ = prefix.length() > 0 ? "[" + prefix + "] " : "";
-#endif
+      this->debugMsgPrefix_ = debugMsgNamePrefix_.length() > 0
+                                ? "[" + debugMsgNamePrefix_ + "] "
+                                : "";
+#endif // TTK_ENABLE_MPI
     }
 
   protected:
@@ -376,6 +381,7 @@ namespace ttk {
     COMMON_EXPORTS static debug::LineMode lastLineMode;
 
     std::string debugMsgPrefix_;
+    std::string debugMsgNamePrefix_;
 
     /**
      * Internal debug method that formats debug messages.

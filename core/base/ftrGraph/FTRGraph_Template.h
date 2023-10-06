@@ -36,12 +36,12 @@ namespace ttk {
 
     template <typename ScalarType, typename triangulationType>
     void FTRGraph<ScalarType, triangulationType>::build() {
-      Timer t;
+      Timer const t;
 
       // init some values
 
 #ifdef TTK_ENABLE_OPENMP
-      ParallelGuard pg{params_.threadNumber};
+      ParallelGuard const pg{params_.threadNumber};
       omp_set_nested(1);
 #ifdef TTK_ENABLE_OMP_PRIORITY
       if(omp_get_max_task_priority() < PriorityLevel::Max) {
@@ -189,7 +189,7 @@ namespace ttk {
       const bool addMin = true;
       const bool addMax = !params_.singleSweep;
 
-      ScalarFieldCriticalPoints critPoints;
+      ScalarFieldCriticalPoints const critPoints;
 
       TaskChunk leafChunkParams(scalars_.getSize());
       leafChunkParams.grainSize = 10000;
@@ -209,10 +209,13 @@ namespace ttk {
           // each task uses its local forests
           for(idVertex v = lowerBound; v < upperBound; ++v) {
             bool lBoundary = false, uBoundary = false;
-            critPoints.getNumberOfLowerUpperComponents(
-              v, scalars_.getOffsets(), mesh_.getTriangulation(),
-              valences_.lower[v], valences_.upper[v], lBoundary, uBoundary);
-
+            std::vector<std::vector<ttk::SimplexId>> upperComponents;
+            std::vector<std::vector<ttk::SimplexId>> lowerComponents;
+            critPoints.getLowerUpperComponents(
+              v, scalars_.getOffsets(), mesh_.getTriangulation(), lBoundary,
+              uBoundary, &upperComponents, &lowerComponents);
+            valences_.lower[v] = lowerComponents.size();
+            valences_.upper[v] = upperComponents.size();
             // leaf cases
             if(addMin && valences_.lower[v] == 0) {
               graph_.addLeaf(v, true);
@@ -246,13 +249,13 @@ namespace ttk {
 #ifdef TTK_ENABLE_FTR_TASK_STATS
       sweepStart_.reStart();
 #endif
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp taskgroup
 #endif
       {
         for(idNode i = 0; i < nbSeed; i++) {
           // alterneate min/max, string at the deepest
-          idVertex l = (i % 2) ? i / 2 : nbSeed - 1 - i / 2;
+          idVertex const l = (i % 2) ? i / 2 : nbSeed - 1 - i / 2;
           // increasing order, min first
           // idVertex l = i;
           // initialize structure
@@ -263,7 +266,7 @@ namespace ttk {
             = graph_.openArc(graph_.makeNode(corLeaf), localPropagation);
           // graph_.visit(corLeaf, newArc);
           // process
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp task OPTIONAL_PRIORITY(PriorityLevel::Higher)
 #endif
           growthFromSeed(corLeaf, localPropagation, newArc);

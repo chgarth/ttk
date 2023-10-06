@@ -1,6 +1,6 @@
 #include <ttkMergeTreeTemporalReductionEncoding.h>
 
-#include <ttkFTMTreeUtils.h>
+#include <ttkMergeAndContourTreeUtils.h>
 #include <ttkMergeTreeVisualization.h>
 
 #include <vtkInformation.h>
@@ -13,7 +13,6 @@
 #include <vtkResampleToImage.h>
 #include <vtkTable.h>
 
-#include <ttkMacros.h>
 #include <ttkUtils.h>
 
 using namespace ttk;
@@ -107,22 +106,13 @@ int ttkMergeTreeTemporalReductionEncoding::RequestData(
   std::vector<vtkSmartPointer<vtkMultiBlockDataSet>> inputTrees;
   loadBlocks(inputTrees, blocks);
   printMsg("Load blocks done.", debug::Priority::VERBOSE);
-  int dataTypeInt
-    = vtkUnstructuredGrid::SafeDownCast(inputTrees[0]->GetBlock(0))
-        ->GetPointData()
-        ->GetArray("Scalar")
-        ->GetDataType();
 
   // If we have already computed once but the input has changed
   if(treesNodes.size() != 0 and inputTrees[0]->GetBlock(0) != treesNodes[0])
     resetDataVisualization();
 
   // Run
-  int res = 0;
-  switch(dataTypeInt) {
-    vtkTemplateMacro(res = run<VTK_TT>(outputVector, inputTrees););
-  }
-  return res;
+  return run<float>(outputVector, inputTrees);
 }
 
 template <class dataType>
@@ -135,7 +125,7 @@ int ttkMergeTreeTemporalReductionEncoding::run(
   return 1;
 }
 
-std::vector<vtkSmartPointer<vtkDataSet>>
+static std::vector<vtkSmartPointer<vtkDataSet>>
   preprocessSegmentation(std::vector<vtkDataSet *> &treesSegmentation,
                          bool doResampleToImage = false) {
   std::vector<vtkSmartPointer<vtkDataSet>> images;
@@ -234,7 +224,7 @@ template <class dataType>
 int ttkMergeTreeTemporalReductionEncoding::runOutput(
   vtkInformationVector *outputVector,
   std::vector<vtkSmartPointer<vtkMultiBlockDataSet>> &inputTrees) {
-  bool OutputSegmentation = (inputTrees[0]->GetNumberOfBlocks() == 3);
+  bool const OutputSegmentation = (inputTrees[0]->GetNumberOfBlocks() == 3);
   // ------------------------------------------------------------------------------------
   // --- Create output
   // ------------------------------------------------------------------------------------
@@ -276,16 +266,16 @@ int ttkMergeTreeTemporalReductionEncoding::runOutput(
   mergeTreeToFTMTree<dataType>(keyFramesT, keyFramesTree);
 
   output_keyFrames->SetNumberOfBlocks((OutputSegmentation ? 3 : 2));
-  vtkSmartPointer<vtkMultiBlockDataSet> vtkBlockNodes
+  vtkSmartPointer<vtkMultiBlockDataSet> const vtkBlockNodes
     = vtkSmartPointer<vtkMultiBlockDataSet>::New();
   vtkBlockNodes->SetNumberOfBlocks(keyFramesT.size());
   output_keyFrames->SetBlock(0, vtkBlockNodes);
-  vtkSmartPointer<vtkMultiBlockDataSet> vtkBlockArcs
+  vtkSmartPointer<vtkMultiBlockDataSet> const vtkBlockArcs
     = vtkSmartPointer<vtkMultiBlockDataSet>::New();
   vtkBlockArcs->SetNumberOfBlocks(keyFramesT.size());
   output_keyFrames->SetBlock(1, vtkBlockArcs);
   if(OutputSegmentation) {
-    vtkSmartPointer<vtkMultiBlockDataSet> vtkBlockSegs
+    vtkSmartPointer<vtkMultiBlockDataSet> const vtkBlockSegs
       = vtkSmartPointer<vtkMultiBlockDataSet>::New();
     vtkBlockSegs->SetNumberOfBlocks(keyFramesT.size());
     output_keyFrames->SetBlock(2, vtkBlockSegs);
@@ -293,11 +283,11 @@ int ttkMergeTreeTemporalReductionEncoding::runOutput(
 
   double prevXMax = 0;
   for(size_t i = 0; i < keyFramesT.size(); ++i) {
-    vtkSmartPointer<vtkUnstructuredGrid> vtkOutputNode1
+    vtkSmartPointer<vtkUnstructuredGrid> const vtkOutputNode1
       = vtkSmartPointer<vtkUnstructuredGrid>::New();
-    vtkSmartPointer<vtkUnstructuredGrid> vtkOutputArc1
+    vtkSmartPointer<vtkUnstructuredGrid> const vtkOutputArc1
       = vtkSmartPointer<vtkUnstructuredGrid>::New();
-    vtkSmartPointer<vtkUnstructuredGrid> vtkOutputSegmentation1
+    vtkSmartPointer<vtkUnstructuredGrid> const vtkOutputSegmentation1
       = vtkSmartPointer<vtkUnstructuredGrid>::New();
 
     ttkMergeTreeVisualization visuMaker;
@@ -364,9 +354,9 @@ int ttkMergeTreeTemporalReductionEncoding::runOutput(
   for(size_t i = 0; i < removed.size(); ++i) {
     while(removed[i] > keyFramesIndex[keyFrameCpt])
       ++keyFrameCpt;
-    int index1 = keyFramesIndex[keyFrameCpt - 1];
-    int index2 = keyFramesIndex[keyFrameCpt];
-    double alpha = computeAlpha(index1, removed[i], index2);
+    int const index1 = keyFramesIndex[keyFrameCpt - 1];
+    int const index2 = keyFramesIndex[keyFrameCpt];
+    double const alpha = computeAlpha(index1, removed[i], index2);
     coef->SetTuple1(i, alpha);
     index1Id->SetTuple1(i, index1);
     index2Id->SetTuple1(i, index2);

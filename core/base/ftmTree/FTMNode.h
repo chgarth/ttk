@@ -25,8 +25,8 @@ namespace ttk {
     private:
       // mesh vertex where this node is
       SimplexId vertexId_;
-      // For leaves, linkedNode is the saddle ending the persistance pair
-      // For saddle, linked is the leaf starting the persistance pair in which
+      // For leaves, linkedNode is the saddle ending the persistence pair
+      // For saddle, linked is the leaf starting the persistence pair in which
       // they are
       SimplexId linkedNode_;
       // link with superArc above and below
@@ -65,7 +65,7 @@ namespace ttk {
         return linkedNode_;
       }
 
-      inline SimplexId getTerminaison() const {
+      inline SimplexId getTermination() const {
         return linkedNode_;
       }
 
@@ -73,7 +73,7 @@ namespace ttk {
         linkedNode_ = linked;
       }
 
-      inline void setTerminaison(SimplexId linked) {
+      inline void setTermination(SimplexId linked) {
         linkedNode_ = linked;
       }
 
@@ -125,13 +125,13 @@ namespace ttk {
       }
 
       inline idSuperArc clearDownSuperArcs() {
-        idSuperArc s = vect_downSuperArcList_.size();
+        idSuperArc const s = vect_downSuperArcList_.size();
         vect_downSuperArcList_.clear();
         return s;
       }
 
       inline idSuperArc clearUpSuperArcs() {
-        idSuperArc s = vect_upSuperArcList_.size();
+        idSuperArc const s = vect_upSuperArcList_.size();
         vect_upSuperArcList_.clear();
         return s;
       }

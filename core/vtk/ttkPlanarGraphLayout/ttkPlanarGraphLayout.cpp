@@ -13,7 +13,7 @@
 #include <vtkUnstructuredGrid.h>
 
 #include <FTMTreePPUtils.h>
-#include <ttkFTMTreeUtils.h>
+#include <ttkMergeAndContourTreeUtils.h>
 #include <ttkMergeTreeVisualization.h>
 
 vtkStandardNewMacro(ttkPlanarGraphLayout);
@@ -60,8 +60,8 @@ int ttkPlanarGraphLayout::planarGraphLayoutCall(
   // Copy input to output
   output->ShallowCopy(input);
 
-  size_t nPoints = output->GetNumberOfPoints();
-  size_t nEdges = output->GetNumberOfCells();
+  size_t const nPoints = output->GetNumberOfPoints();
+  size_t const nEdges = output->GetNumberOfCells();
 
   // Get input arrays
   auto sequenceArray = this->GetInputArrayToProcess(0, inputVector);
@@ -169,17 +169,8 @@ int ttkPlanarGraphLayout::mergeTreePlanarLayoutCall(
   vtkUnstructuredGrid *treeArcs
     = vtkUnstructuredGrid::GetData(inputVector[0], 1);
   auto output = vtkUnstructuredGrid::GetData(outputVector);
-  int dataTypeInt
-    = treeNodes->GetPointData()->GetArray("Scalar")->GetDataType();
 
-  int res = 0;
-
-  switch(dataTypeInt) {
-    vtkTemplateMacro(res = mergeTreePlanarLayoutCallTemplate<VTK_TT>(
-                       treeNodes, treeArcs, output););
-  }
-
-  return res;
+  return mergeTreePlanarLayoutCallTemplate<float>(treeNodes, treeArcs, output);
 }
 
 int ttkPlanarGraphLayout::RequestData(vtkInformation *request,

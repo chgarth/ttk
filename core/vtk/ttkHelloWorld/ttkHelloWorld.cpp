@@ -110,7 +110,7 @@ int ttkHelloWorld::RequestData(vtkInformation *ttkNotUsed(request),
   //               const char *name
   //            )
   //
-  //       The parameter 'idx' is often missunderstood: lets say the filter
+  //       The parameter 'idx' is often misunderstood: lets say the filter
   //       requires n arrays, then idx enumerates them from 0 to n-1.
   //
   //       The 'port' is the input port index at which the object is connected
@@ -162,7 +162,7 @@ int ttkHelloWorld::RequestData(vtkInformation *ttkNotUsed(request),
   // Create an output array that has the same data type as the input array
   // Note: vtkSmartPointers are well documented
   //       (https://vtk.org/Wiki/VTK/Tutorials/SmartPointers)
-  vtkSmartPointer<vtkDataArray> outputArray
+  vtkSmartPointer<vtkDataArray> const outputArray
     = vtkSmartPointer<vtkDataArray>::Take(inputArray->NewInstance());
   outputArray->SetName(this->OutputArrayName.data()); // set array name
   outputArray->SetNumberOfComponents(1); // only one component per tuple
