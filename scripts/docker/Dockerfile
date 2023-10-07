@@ -65,6 +65,10 @@ RUN  install-helper /tmp/zfp.sh
 COPY pkg/spectra.sh /tmp
 RUN  install-helper /tmp/spectra.sh
 
+# --------------------------------------------------------------------------
+
+FROM builder as builder-paraview
+
 # install ParaView
 ARG paraview=5.10.1
 ENV PARAVIEW_VERSION=${paraview}
@@ -74,7 +78,7 @@ RUN  install-helper /tmp/paraview.sh
 
 # --------------------------------------------------------------------------
 
-FROM builder as builder-ttk
+FROM builder-paraview as builder-ttk
 
 # install TTK
 ARG ttk=dev
@@ -88,7 +92,7 @@ RUN  install-helper /tmp/ttk.sh
 # --------------------------------------------------------------------------
 
 #FROM builder-ttk as ttk-dev
-FROM builder as ttk-dev
+FROM builder-paraview as ttk-dev
 
 #COPY --from=builder-ttk /usr/local /usr/local
 
